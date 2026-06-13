@@ -115,8 +115,8 @@ export default function ProvinsiPage() {
   return (
     <div className="min-h-screen">
       <Header
-        title="Provinsi"
-        subtitle={`Alokasi APBN Pendidikan per Wilayah Provinsi Tahun ${activeTahun}`}
+        title="Penyaluran Wilayah"
+        subtitle={`Penyaluran dan pencairan dana APBN Pendidikan per Wilayah Provinsi Tahun ${activeTahun}`}
       />
 
       <div className="p-6">
@@ -126,7 +126,7 @@ export default function ProvinsiPage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder="Cari provinsi..."
+              placeholder="Cari wilayah provinsi..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
@@ -153,11 +153,11 @@ export default function ProvinsiPage() {
             <thead>
               <tr>
                 <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 200 }}>Nama Provinsi</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Nominal (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Realisasi (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 150 }}>Selisih</th>
-                <th className="sheet-header-cell text-center" style={{ width: 120 }}>% Penyerapan</th>
+                <th className="sheet-header-cell text-left" style={{ minWidth: 200 }}>Nama Provinsi / Wilayah</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Alokasi Pagu (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Dana Cair (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 150 }}>Dana Pending</th>
+                <th className="sheet-header-cell text-center" style={{ width: 120 }}>% Penyaluran</th>
               </tr>
             </thead>
             <tbody>
@@ -194,7 +194,7 @@ export default function ProvinsiPage() {
         </div>
 
         <p className="mt-3 text-xs text-text-muted">
-          ✏️ Klik sel Nominal atau Realisasi untuk edit langsung • Tekan Enter untuk simpan • Escape untuk batal
+          ✏️ Klik sel Alokasi Pagu atau Dana Cair untuk edit langsung • Tekan Enter untuk simpan • Escape untuk batal
         </p>
       </div>
     </div>

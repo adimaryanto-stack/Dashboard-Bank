@@ -13,7 +13,7 @@ import { Search, Download, Plus, Upload } from 'lucide-react';
 
 const jenjangLabels: Record<string, { label: string; jenjang: Jenjang }> = {
   universitas: { label: 'Universitas', jenjang: 'UNIVERSITAS' },
-  sma: { label: 'SMA', jenjang: 'SMA' },
+  sma: { label: 'SMA / SMK', jenjang: 'SMA' },
   smp: { label: 'SMP', jenjang: 'SMP' },
   sd: { label: 'SD', jenjang: 'SD' },
   paud: { label: 'PAUD', jenjang: 'PAUD' },
@@ -96,7 +96,7 @@ export default function JenjangPage() {
 
       if (newItems.length > 0) {
         setData(prev => [...newItems, ...prev]);
-        alert(`${newItems.length} data institusi berhasil diimport dan dicocokkan!`);
+        alert(`${newItems.length} data sekolah berhasil diimport dan dicocokkan!`);
       } else {
         alert('Gagal membaca data CSV. Pastikan format: Nama Sekolah, NPSN, Kabupaten/Kota, Provinsi');
       }
@@ -136,7 +136,7 @@ export default function JenjangPage() {
       result = result.filter(inst => inst.nama_institusi.toLowerCase().includes(search.toLowerCase()));
     }
     return result;
-  }, [data, search, selectedProvinsiId, selectedKabKotaName]);
+  }, [data, search, selectedProvinsiId, selectedKabKotaName, selectedStatus]);
 
   const totals = useMemo(() => {
     const nom = filtered.reduce((s, i) => s + i.nominal_alokasi, 0);
@@ -193,15 +193,26 @@ export default function JenjangPage() {
     }
 
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEdit(row.id, field, value)}>
+      <td className="sheet-cell sheet-cell-editable text-right font-mono" onClick={() => startEdit(row.id, field, value)}>
         {fmtRupiah(value)}
       </td>
     );
   };
 
+  // Status Pencairan Badge Helper
+  const getPencairanStatusBadge = (pct: number) => {
+    if (pct >= 100) {
+      return <span className="badge bg-emerald-100 text-emerald-700 border-emerald-300">🟢 Sudah Masuk</span>;
+    }
+    if (pct > 0) {
+      return <span className="badge bg-amber-100 text-amber-700 border-amber-300">🟡 Proses ({pct}%)</span>;
+    }
+    return <span className="badge bg-rose-100 text-rose-700 border-rose-300">🔴 Belum Masuk</span>;
+  };
+
   return (
     <div className="min-h-screen">
-      <Header title={`Jenjang: ${config.label}`} subtitle={`Data alokasi dan realisasi institusi ${config.label} Tahun ${activeTahun}`} />
+      <Header title={`Kategori: ${config.label}`} subtitle={`Daftar status pencairan dana APBN Pendidikan kategori ${config.label} Tahun ${activeTahun}`} />
 
       <div className="p-6">
         {/* Toolbar */}
@@ -237,28 +248,28 @@ export default function JenjangPage() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted">Status:</span>
+            <span className="text-xs text-text-muted">Layanan:</span>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="select-dropdown"
             >
-              <option value="">Semua Status</option>
-              <option value="NEGERI">Negeri</option>
-              <option value="SWASTA">Swasta</option>
+              <option value="">Semua Layanan</option>
+              <option value="NEGERI">Konvensional</option>
+              <option value="SWASTA">Syariah</option>
             </select>
           </div>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder={`Cari nama ${config.label.toLowerCase()}...`}
+              placeholder={`Cari nama sekolah/institusi...`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
             />
           </div>
-          <span className="text-xs text-text-muted flex-1">{filtered.length} institusi</span>
+          <span className="text-xs text-text-muted flex-1">{filtered.length} sekolah</span>
           <input 
             type="file" 
             accept=".csv" 
@@ -286,15 +297,15 @@ export default function JenjangPage() {
             <thead>
               <tr>
                 <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 220 }}>Nama {config.label}</th>
-                <th className="sheet-header-cell text-center" style={{ width: 90 }}>Status</th>
+                <th className="sheet-header-cell text-left" style={{ minWidth: 220 }}>Nama Sekolah / Rekening Penerima</th>
+                <th className="sheet-header-cell text-center" style={{ width: 120 }}>Layanan</th>
                 <th className="sheet-header-cell text-left" style={{ minWidth: 160 }}>Kabupaten/Kota</th>
                 <th className="sheet-header-cell text-left" style={{ minWidth: 130 }}>Provinsi</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 160 }}>Nominal (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 160 }}>Realisasi (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 120 }}>Selisih</th>
-                <th className="sheet-header-cell text-center" style={{ width: 110 }}>%</th>
-                <th className="sheet-header-cell text-center" style={{ width: 80 }}>NPSN</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 160 }}>Alokasi Pagu (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 160 }}>Dana Cair (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 120 }}>Dana Pending</th>
+                <th className="sheet-header-cell text-center" style={{ width: 140 }}>Status Pencairan</th>
+                <th className="sheet-header-cell text-center" style={{ width: 80 }}>Kode NPSN</th>
               </tr>
             </thead>
             <tbody>
@@ -302,15 +313,15 @@ export default function JenjangPage() {
                 <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                   <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
                   <td className="sheet-cell text-left font-medium text-text-primary">
-                    <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors">
+                    <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors text-indigo-700">
                       {row.nama_institusi}
                     </Link>
                   </td>
                   <td className="sheet-cell text-center">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                       row.status_sekolah === 'NEGERI' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-purple-100 text-purple-700 border border-purple-200'
                     }`}>
-                      {row.status_sekolah}
+                      {row.status_sekolah === 'NEGERI' ? 'Konvensional' : 'Syariah'}
                     </span>
                   </td>
                   <td className="sheet-cell text-left text-text-secondary text-xs">{row.kabupaten_kota_nama}</td>
@@ -319,7 +330,7 @@ export default function JenjangPage() {
                   {renderEditableCell(row, 'realisasi')}
                   <td className="sheet-cell text-right text-rose-600">{fmtTriliun(row.selisih)}</td>
                   <td className="sheet-cell text-center">
-                    <PctBadge value={row.persentase_penyerapan} />
+                    {getPencairanStatusBadge(row.persentase_penyerapan)}
                   </td>
                   <td className="sheet-cell text-center text-text-muted text-xs font-mono">{row.npsn}</td>
                 </tr>
@@ -335,8 +346,8 @@ export default function JenjangPage() {
                 <td className="sheet-footer-cell text-right">{fmtRupiah(totals.nominal)}</td>
                 <td className="sheet-footer-cell text-right">{fmtRupiah(totals.realisasi)}</td>
                 <td className="sheet-footer-cell text-right text-rose-600">{fmtTriliun(totals.selisih)}</td>
-                <td className="sheet-footer-cell text-center">
-                  <PctBadge value={totals.pct} size="md" />
+                <td className="sheet-footer-cell text-center font-bold">
+                  {(totals.pct).toFixed(1)}%
                 </td>
                 <td className="sheet-footer-cell" />
               </tr>
@@ -345,7 +356,7 @@ export default function JenjangPage() {
         </div>
 
         <p className="mt-3 text-xs text-text-muted">
-          ✏️ Klik sel untuk edit • Cascade update: Institusi → Kabkota → Provinsi
+          ✏️ Klik sel Alokasi Pagu atau Dana Cair untuk edit transfer langsung • Terakumulasi otomatis ke Area & Wilayah
         </p>
       </div>
     </div>

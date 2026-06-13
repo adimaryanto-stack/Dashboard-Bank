@@ -113,13 +113,13 @@ export default function KabupatenKotaPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Kabupaten / Kota" subtitle={`Data alokasi anggaran per kabupaten/kota — ${selectedProvName} Tahun ${activeTahun}`} />
+      <Header title="Penyaluran Area" subtitle={`Dana alokasi & cair per area kabupaten/kota — ${selectedProvName} Tahun ${activeTahun}`} />
 
       <div className="p-6">
         {/* Toolbar */}
         <div className="sheet-toolbar flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted">Provinsi:</span>
+            <span className="text-xs text-text-muted">Wilayah Provinsi:</span>
             <select
               value={selectedProvinsi}
               onChange={(e) => setSelectedProvinsi(e.target.value)}
@@ -134,16 +134,16 @@ export default function KabupatenKotaPage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder="Cari kabupaten/kota..."
+              placeholder="Cari area kab/kota..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
             />
           </div>
-          <span className="text-xs text-text-muted flex-1">{filtered.length} kabupaten/kota</span>
+          <span className="text-xs text-text-muted flex-1">{filtered.length} area</span>
           <button className="btn btn-primary">
             <Plus size={14} />
-            Tambah Kab/Kota
+            Tambah Area
           </button>
           <button className="btn btn-primary">
             <Download size={14} />
@@ -157,12 +157,12 @@ export default function KabupatenKotaPage() {
             <thead>
               <tr>
                 <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 220 }}>Kabupaten / Kota</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 150 }}>Provinsi</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 170 }}>Nominal (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 170 }}>Realisasi (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 130 }}>Selisih</th>
-                <th className="sheet-header-cell text-center" style={{ width: 120 }}>%</th>
+                <th className="sheet-header-cell text-left" style={{ minWidth: 220 }}>Area Kabupaten / Kota</th>
+                <th className="sheet-header-cell text-left" style={{ minWidth: 150 }}>Wilayah Provinsi</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 170 }}>Alokasi Pagu (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 170 }}>Dana Cair (Rp)</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 130 }}>Dana Pending</th>
+                <th className="sheet-header-cell text-center" style={{ width: 120 }}>% Penyaluran</th>
               </tr>
             </thead>
             <tbody>
@@ -197,7 +197,7 @@ export default function KabupatenKotaPage() {
         </div>
 
         <p className="mt-3 text-xs text-text-muted">
-          ✏️ Klik sel untuk edit langsung • Update otomatis cascade ke Provinsi
+          ✏️ Klik sel Alokasi Pagu atau Dana Cair untuk edit langsung • Terakumulasi otomatis ke Provinsi
         </p>
       </div>
     </div>

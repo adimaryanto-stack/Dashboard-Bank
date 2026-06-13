@@ -8,8 +8,8 @@ import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
 import { alokasiProvinsiData, getKabkotaByProvinsi, getJenjangBreakdownByProvinsi, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
-import { AlokasiProvinsi, AlokasiKabupatenKota, JenjangBreakdownProvinsi } from '@/types';
-import { ArrowLeft, Banknote, Download, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { AlokasiProvinsi, AlokasiKabupatenKota } from '@/types';
+import { ArrowLeft, Banknote, Download, Sparkles } from 'lucide-react';
 
 export default function ProvinsiDetailPage() {
   const params = useParams();
@@ -76,8 +76,8 @@ export default function ProvinsiDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-xl shadow-md border border-slate-100 max-w-md">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Provinsi Tidak Ditemukan</h2>
-          <p className="text-text-muted mb-6">ID Provinsi: "{id}" tidak terdaftar di sistem.</p>
+          <h2 className="text-xl font-bold text-text-primary mb-2">Wilayah Tidak Ditemukan</h2>
+          <p className="text-text-muted mb-6">ID Wilayah: "{id}" tidak terdaftar di sistem.</p>
           <button onClick={() => router.back()} className="btn btn-primary inline-flex items-center gap-2">
             <ArrowLeft size={16} />
             Kembali
@@ -166,8 +166,8 @@ export default function ProvinsiDetailPage() {
   return (
     <div className="min-h-screen">
       <Header
-        title={`Rincian Provinsi: ${provData.provinsi.nama_provinsi}`}
-        subtitle={`Tahun Anggaran ${activeTahun} — Transparansi Pembagian Anggaran Wilayah`}
+        title={`Penyaluran Wilayah: ${provData.provinsi.nama_provinsi}`}
+        subtitle={`Tahun Anggaran ${activeTahun} — Status Penyaluran & Pencairan Dana Wilayah`}
       />
 
       <div className="p-6 space-y-6">
@@ -196,7 +196,7 @@ export default function ProvinsiDetailPage() {
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Sparkles size={16} className="text-indigo-500" />
-              Tabel Summary Anggaran Provinsi
+              Summary Penyaluran Dana Provinsi
             </h3>
             <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Summary]</span>
           </div>
@@ -207,10 +207,10 @@ export default function ProvinsiDetailPage() {
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
                   <th className="sheet-header-cell text-center" style={{ width: 160 }}>Tahun Anggaran</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Nominal</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Realisasi</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Nominal Selisih</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 200 }}>Persentase penyerapan</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Alokasi Pagu</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Dana Cair</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Dana Pending</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 200 }}>Rasio Penyaluran</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,15 +236,15 @@ export default function ProvinsiDetailPage() {
         </div>
 
         {/* ============================================================ */}
-        {/* 2. JENJANG PENDIDIKAN TABLE */}
+        {/* 2. KATEGORI SEKOLAH TABLE */}
         {/* ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Banknote size={16} className="text-indigo-500" />
-              Porsi Alokasi Dana per Jenjang Pendidikan
+              Penyaluran per Kategori Sekolah
             </h3>
-            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Porsi Jenjang]</span>
+            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Porsi Kategori]</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -252,28 +252,37 @@ export default function ProvinsiDetailPage() {
               <thead>
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
-                  <th className="sheet-header-cell text-left">Jenjang Pendidikan</th>
+                  <th className="sheet-header-cell text-left">Kategori Penerima</th>
                   <th className="sheet-header-cell text-right" style={{ width: 180 }}>Jumlah Sekolah</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 240 }}>Nominal Keseluruhan</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Porsi Anggaran (%)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 240 }}>Pagu Alokasi</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Porsi Dana (%)</th>
                 </tr>
               </thead>
               <tbody>
-                {jenjangBreakdown.map((row) => (
-                  <tr key={row.nomor} className="hover:bg-indigo-50/50 transition">
-                    <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
-                    <td className="sheet-cell text-left font-semibold text-slate-700">{row.jenjang}</td>
-                    <td className="sheet-cell text-right font-mono text-text-primary font-medium">{row.jumlah_sekolah}</td>
-                    <td className="sheet-cell text-right font-mono font-medium text-indigo-700 bg-indigo-50/10">
-                      {fmtRupiah(row.nominal_keseluruhan)}
-                    </td>
-                    <td className="sheet-cell text-center">
-                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
-                        {row.porsi_anggaran}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {jenjangBreakdown.map((row) => {
+                  let label = row.jenjang;
+                  if (row.jenjang.includes('Universitas')) label = 'Universitas';
+                  else if (row.jenjang.includes('Sekolah Menengah Atas')) label = 'SMA / SMK';
+                  else if (row.jenjang.includes('Sekolah Menengah Pertama')) label = 'SMP';
+                  else if (row.jenjang.includes('Sekolah Dasar')) label = 'SD';
+                  else if (row.jenjang.includes('Anak Usia Dini')) label = 'PAUD';
+                  
+                  return (
+                    <tr key={row.nomor} className="hover:bg-indigo-50/50 transition">
+                      <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
+                      <td className="sheet-cell text-left font-semibold text-slate-700">{label}</td>
+                      <td className="sheet-cell text-right font-mono text-text-primary font-medium">{row.jumlah_sekolah}</td>
+                      <td className="sheet-cell text-right font-mono font-medium text-indigo-700 bg-indigo-50/10">
+                        {fmtRupiah(row.nominal_keseluruhan)}
+                      </td>
+                      <td className="sheet-cell text-center">
+                        <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
+                          {row.porsi_anggaran}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -285,9 +294,9 @@ export default function ProvinsiDetailPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-              Rincian Pembagian Anggaran Ke Dinas Pendidikan Kabupaten/Kota di Provinsi {provData.provinsi.nama_provinsi}
+              Rincian Penyaluran Dana Area Kabupaten/Kota di Provinsi {provData.provinsi.nama_provinsi}
             </h3>
-            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Dinas Kabupaten/Kota]</span>
+            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Penyaluran Kabupaten/Kota]</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -296,10 +305,10 @@ export default function ProvinsiDetailPage() {
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
                   <th className="sheet-header-cell text-left">Nama Kabupaten/Kota</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Nominal Anggaran</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Realisasi</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Nominal Selisih</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Persentase penyerapan</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Alokasi Pagu</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Dana Cair</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Dana Pending</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>% Penyaluran</th>
                 </tr>
               </thead>
               <tbody>
@@ -326,7 +335,7 @@ export default function ProvinsiDetailPage() {
                 {/* Realisasi Anggaran Row (Identical to Google Sheets Screenshot) */}
                 <tr className="border-t-2 border-slate-300">
                   <td className="sheet-cell font-bold text-center bg-emerald-100 text-emerald-800 border-r border-slate-200" colSpan={3}>
-                    Realisasi Anggaran
+                    Realisasi Dana Cair
                   </td>
                   <td className="sheet-cell text-right font-bold bg-emerald-500 text-white font-mono border-r border-slate-200 text-sm">
                     {fmtRupiah(totals.realisasi)}
@@ -345,7 +354,7 @@ export default function ProvinsiDetailPage() {
 
         <p className="text-xs text-text-muted flex items-center gap-1">
           <span>✏️</span>
-          <span>Klik langsung pada kolom <strong>Nominal Anggaran</strong> atau <strong>Realisasi</strong> untuk mengubah data • Tekan <strong>Enter</strong> untuk menyimpan</span>
+          <span>Klik langsung pada kolom <strong>Alokasi Pagu</strong> atau <strong>Dana Cair</strong> untuk mengubah data • Tekan <strong>Enter</strong> untuk menyimpan</span>
         </p>
       </div>
     </div>

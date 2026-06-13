@@ -38,7 +38,7 @@ export default function RincianPengeluaranPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-bold text-text-primary mb-2">Data tidak ditemukan</h2>
-          <p className="text-text-muted mb-4">Institusi ID: {institusiId}, Bulan: {nomorBulan}</p>
+          <p className="text-text-muted mb-4">Sekolah ID: {institusiId}, Bulan: {nomorBulan}</p>
           <button onClick={() => router.back()} className="btn btn-primary">
             <ArrowLeft size={16} />
             Kembali
@@ -98,7 +98,7 @@ export default function RincianPengeluaranPage() {
     }
 
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEdit(row.id, field, value)}>
+      <td className="sheet-cell sheet-cell-editable text-right font-mono" onClick={() => startEdit(row.id, field, value)}>
         {field === 'qty' ? value.toLocaleString('id-ID') : fmtRupiah(value)}
       </td>
     );
@@ -120,8 +120,8 @@ export default function RincianPengeluaranPage() {
   return (
     <div className="min-h-screen">
       <Header
-        title={`Rincian Pengeluaran Bulan ${rincianData.bulan}`}
-        subtitle={`${rincianData.institusi_nama} — Bulan ${rincianData.bulan} ${activeTahun}`}
+        title={`Detail Beban Bulan: ${rincianData.bulan}`}
+        subtitle={`Transaksi Rekening ${rincianData.institusi_nama} — Bulan ${rincianData.bulan} ${activeTahun}`}
       />
 
       <div className="p-6 space-y-6">
@@ -129,33 +129,33 @@ export default function RincianPengeluaranPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.back()} className="btn btn-ghost text-sm">
             <ArrowLeft size={14} />
-            Kembali ke Profil
+            Kembali ke Rekening
           </button>
           <span className="text-text-muted text-xs">|</span>
           <nav className="flex items-center gap-1 text-xs text-text-muted">
             <Link href="/dashboard/profil-institusi" className="hover:text-accent transition-colors">
-              Profil Institusi
+              Rekening Sekolah
             </Link>
             <span>→</span>
             <Link href={`/dashboard/profil-institusi/${institusiId}`} className="hover:text-accent transition-colors">
               {rincianData.institusi_nama}
             </Link>
             <span>→</span>
-            <span className="text-text-primary font-medium">Rincian {rincianData.bulan}</span>
+            <span className="text-text-primary font-medium">Beban {rincianData.bulan}</span>
           </nav>
         </div>
 
         {/* Title Banner */}
         <div className="glass-card p-5">
           <h2 className="text-base font-bold text-text-primary">
-            📋 Rincian Penggunaan Anggaran Pendidikan {rincianData.institusi_nama} Bulan {rincianData.bulan} {activeTahun}
+            📋 Detail Beban Operasional Bulanan Rekening {rincianData.institusi_nama} — Bulan {rincianData.bulan} {activeTahun}
           </h2>
         </div>
 
         {/* Toolbar */}
         <div className="sheet-toolbar">
           <span className="text-sm font-bold text-text-primary">
-            Nama Produk / Jasa
+            Keterangan Transaksi / Nama Beban
           </span>
           <span className="text-xs text-text-muted flex-1">{items.length} item</span>
           <button className="btn btn-ghost" onClick={addItem}>
@@ -174,10 +174,10 @@ export default function RincianPengeluaranPage() {
             <thead>
               <tr>
                 <th className="sheet-header-cell text-center" style={{ width: 60 }}>Nomor</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 300 }}>Nama Produk / Jasa</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Harga Satuan</th>
-                <th className="sheet-header-cell text-center" style={{ width: 100 }}>Qty</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Jumlah</th>
+                <th className="sheet-header-cell text-left" style={{ minWidth: 300 }}>Keterangan Transaksi / Nama Beban</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Tarif / Harga Satuan (Rp)</th>
+                <th className="sheet-header-cell text-center" style={{ width: 100 }}>Frekuensi</th>
+                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Sub Total Beban (Rp)</th>
               </tr>
             </thead>
             <tbody>
@@ -187,7 +187,7 @@ export default function RincianPengeluaranPage() {
                   <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_produk_jasa}</td>
                   {renderEditableCell(row, 'harga_satuan')}
                   {renderEditableCell(row, 'qty')}
-                  <td className="sheet-cell text-right font-medium text-text-primary">
+                  <td className="sheet-cell text-right font-medium text-text-primary font-mono">
                     {fmtRupiah(row.jumlah)}
                   </td>
                 </tr>
@@ -198,9 +198,9 @@ export default function RincianPengeluaranPage() {
               <tr>
                 <td className="sheet-footer-cell" />
                 <td className="sheet-footer-cell text-left font-bold text-text-primary" colSpan={3}>
-                  Sub Total
+                  Sub Total Beban
                 </td>
-                <td className="sheet-footer-cell text-right font-bold text-text-primary">
+                <td className="sheet-footer-cell text-right font-bold text-text-primary font-mono">
                   {fmtRupiah(subTotal)}
                 </td>
               </tr>
@@ -208,9 +208,9 @@ export default function RincianPengeluaranPage() {
               <tr>
                 <td className="sheet-cell border-b border-border" />
                 <td className="sheet-cell border-b border-border text-left text-text-secondary" colSpan={3}>
-                  Pajak {pajakPersen}%
+                  Pajak PPN {pajakPersen}%
                 </td>
-                <td className="sheet-cell border-b border-border text-right text-text-secondary">
+                <td className="sheet-cell border-b border-border text-right text-text-secondary font-mono">
                   {fmtRupiah(pajakNominal)}
                 </td>
               </tr>
@@ -218,9 +218,9 @@ export default function RincianPengeluaranPage() {
               <tr>
                 <td className="sheet-footer-cell" />
                 <td className="sheet-footer-cell text-left font-bold" colSpan={3}>
-                  Total
+                  Total Pengeluaran
                 </td>
-                <td className="sheet-footer-cell text-right font-bold text-emerald-600 text-base">
+                <td className="sheet-footer-cell text-right font-bold text-emerald-600 text-base font-mono">
                   {fmtRupiah(total)}
                 </td>
               </tr>
@@ -229,7 +229,7 @@ export default function RincianPengeluaranPage() {
         </div>
 
         <p className="text-xs text-text-muted">
-          ✏️ Klik sel Harga Satuan atau Qty untuk edit langsung • Jumlah = Harga Satuan × Qty • Total = Sub Total + Pajak {pajakPersen}%
+          ✏️ Klik sel Tarif atau Frekuensi untuk edit transaksi langsung • Sub Total Beban = Tarif × Frekuensi • Total = Sub Total + Pajak PPN {pajakPersen}%
         </p>
       </div>
     </div>

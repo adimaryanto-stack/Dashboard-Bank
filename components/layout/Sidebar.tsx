@@ -55,8 +55,8 @@ export default function Sidebar() {
               <Landmark size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-text-primary leading-tight">Dashboard</h1>
-              <p className="text-xs text-text-muted">Kementerian</p>
+              <h1 className="text-sm font-bold text-text-primary leading-tight">Dashboard Bank</h1>
+              <p className="text-xs text-text-muted">Bank Penyalur</p>
             </div>
           </div>
         </div>
@@ -70,17 +70,17 @@ export default function Sidebar() {
 
           <Link href="/dashboard/apbn" className={`sidebar-item ${isActive('/dashboard/apbn') ? 'active' : ''}`}>
             <DollarSign size={18} />
-            <span>APBN Pertahun</span>
+            <span>Kelola Pagu Pusat</span>
           </Link>
 
           <Link href="/dashboard/provinsi" className={`sidebar-item ${isActive('/dashboard/provinsi') ? 'active' : ''}`}>
             <MapPin size={18} />
-            <span>Provinsi</span>
+            <span>Penyaluran Wilayah</span>
           </Link>
 
           <Link href="/dashboard/kabupaten-kota" className={`sidebar-item ${isActive('/dashboard/kabupaten-kota') ? 'active' : ''}`}>
             <Building2 size={18} />
-            <span>Kabupaten / Kota</span>
+            <span>Penyaluran Area</span>
           </Link>
 
           {/* Jenjang Accordion */}
@@ -90,7 +90,7 @@ export default function Sidebar() {
               className={`sidebar-item w-full ${isJenjangActive ? 'active' : ''}`}
             >
               <GraduationCap size={18} />
-              <span className="flex-1 text-left">Jenjang Pendidikan</span>
+              <span className="flex-1 text-left">Kategori Sekolah</span>
               {jenjangOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>
             
@@ -112,12 +112,12 @@ export default function Sidebar() {
 
           <Link href="/dashboard/profil-institusi" className={`sidebar-item ${pathname.includes('/profil-institusi') ? 'active' : ''}`}>
             <School size={18} />
-            <span>Profil Institusi</span>
+            <span>Rekening Sekolah</span>
           </Link>
 
           <Link href="/dashboard/users" className={`sidebar-item ${isActive('/dashboard/users') ? 'active' : ''}`}>
             <Users size={18} />
-            <span>User Manager</span>
+            <span>Manajer Pengguna</span>
           </Link>
         </nav>
 
@@ -128,8 +128,8 @@ export default function Sidebar() {
               SA
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-text-primary truncate">Super Admin</p>
-              <p className="text-[10px] text-text-muted truncate">admin@kemdikbud.go.id</p>
+              <p className="text-xs font-medium text-text-primary truncate">Super Admin (Bank)</p>
+              <p className="text-[10px] text-text-muted truncate">superadmin@davincibank.co.id</p>
             </div>
           </div>
         </div>

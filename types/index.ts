@@ -1,15 +1,17 @@
 // ============================================
-// Types — Sistem Transparansi Anggaran Pendidikan
+// Types — Dashboard Bank (Portal Penyaluran Anggaran Pendidikan)
 // ============================================
 
 export type BudgetStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';
 export type Jenjang = 'UNIVERSITAS' | 'SMA' | 'SMP' | 'SD' | 'PAUD';
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'ADMIN_PROVINSI' | 'ADMIN_KABKOTA' | 'VIEWER' | 'AUDITOR';
 
+export type PencairanStatus = 'SUDAH_MASUK' | 'SEBAGIAN' | 'BELUM_MASUK';
+
 export interface TahunAnggaran {
   id: string;
   tahun: number;
-  total_anggaran: number;
+  total_anggaran: number; // Pagu Dana Pusat
   status: BudgetStatus;
   created_at: string;
 }
@@ -25,10 +27,10 @@ export interface AlokasiProvinsi {
   tahun_anggaran_id: string;
   provinsi_id: string;
   provinsi: Provinsi;
-  nominal_alokasi: number;
-  realisasi_total: number;
-  selisih: number;
-  persentase_penyerapan: number;
+  nominal_alokasi: number; // Target Pagu Wilayah
+  realisasi_total: number; // Total Dana Cair
+  selisih: number;         // Total Dana Pending
+  persentase_penyerapan: number; // Rasio Penyaluran Wilayah
   updated_at: string;
 }
 
@@ -46,16 +48,16 @@ export interface AlokasiKabupatenKota {
   kabupaten_kota_id: string;
   kabupaten_kota: KabupatenKota;
   provinsi_nama: string;
-  nominal_alokasi: number;
-  realisasi_total: number;
-  selisih: number;
-  persentase_penyerapan: number;
+  nominal_alokasi: number; // Target Pagu Area
+  realisasi_total: number; // Dana Cair Area
+  selisih: number;         // Dana Pending Area
+  persentase_penyerapan: number; // Rasio Penyaluran Area
   updated_at: string;
 }
 
 export interface JenjangBreakdownProvinsi {
   nomor: number;
-  jenjang: string;
+  jenjang: string; // Kategori Penerima (Universitas, SMA, dll.)
   jumlah_sekolah: number;
   nominal_keseluruhan: number;
   porsi_anggaran: number; // percentage
@@ -63,29 +65,29 @@ export interface JenjangBreakdownProvinsi {
 
 export interface InstitusiPendidikan {
   id: string;
-  npsn: string;
-  nama_institusi: string;
+  npsn: string; // NPSN / Kode Sekolah
+  nama_institusi: string; // Nama Sekolah
   jenjang: Jenjang;
   kabupaten_kota_id: string;
   kabupaten_kota_nama: string;
   provinsi_nama: string;
-  status_sekolah: 'NEGERI' | 'SWASTA';
-  nomor_rekening?: string;
-  nominal_alokasi: number;
-  realisasi_total: number;
-  selisih: number;
-  persentase_penyerapan: number;
+  status_sekolah: 'NEGERI' | 'SWASTA'; // NEGERI = KONVENSIONAL, SWASTA = SYARIAH
+  nomor_rekening?: string; // Rekening Sekolah di Bank DaVinci
+  nominal_alokasi: number; // Pagu Dana Sekolah
+  realisasi_total: number; // Dana Berhasil Ditransfer (Cair)
+  selisih: number;         // Dana Pending / Belum Ditransfer
+  persentase_penyerapan: number; // Persentase Keberhasilan Transfer
   updated_at: string;
 }
 
 export interface SumberDanaInstitusi {
   id: string;
   institusi_id: string;
-  nama_sumber: string;
+  nama_sumber: string; // Kas Negara (APBN), Kas Daerah (APBD), CSR, dll.
   tahun_anggaran: string;
   nominal: number;
   realisasi: number;
-  saldo_di_bank: number; // nominal - realisasi
+  saldo_di_bank: number; // Saldo Rekening Sekolah (nominal - realisasi)
 }
 
 export interface PengeluaranBulananInstitusi {

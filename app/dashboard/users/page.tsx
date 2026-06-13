@@ -4,15 +4,15 @@ import { useState, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import { usersData } from '@/lib/data';
 import { User, UserRole } from '@/types';
-import { Search, Plus, Edit3, Trash2, Shield, ShieldCheck, Eye, UserCheck, UserX } from 'lucide-react';
+import { Search, Plus, Edit3, Trash2, UserCheck, UserX } from 'lucide-react';
 
 const roleConfig: Record<UserRole, { label: string; color: string }> = {
   SUPER_ADMIN: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-  ADMIN: { label: 'Admin', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
-  ADMIN_PROVINSI: { label: 'Admin Provinsi', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-  ADMIN_KABKOTA: { label: 'Admin Kab/Kota', color: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
-  VIEWER: { label: 'Viewer', color: 'bg-gray-100 text-gray-600 border-gray-300' },
-  AUDITOR: { label: 'Auditor', color: 'bg-amber-100 text-amber-700 border-amber-300' },
+  ADMIN: { label: 'Admin Bank Pusat', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+  ADMIN_PROVINSI: { label: 'Admin Bank Regional', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  ADMIN_KABKOTA: { label: 'Admin Bank Area', color: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
+  VIEWER: { label: 'Viewer Eksternal', color: 'bg-gray-100 text-gray-600 border-gray-300' },
+  AUDITOR: { label: 'Internal Auditor Bank', color: 'bg-amber-100 text-amber-700 border-amber-300' },
 };
 
 export default function UsersPage() {
@@ -89,7 +89,7 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="User Manager" subtitle="Kelola pengguna dan hak akses sistem" />
+      <Header title="Manajer Pengguna" subtitle="Kelola pengguna dan hak akses staf perbankan serta pengawas" />
 
       <div className="p-6">
         {/* Toolbar */}
@@ -210,7 +210,7 @@ export default function UsersPage() {
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  placeholder="john@kemdikbud.go.id"
+                  placeholder="john.doe@davincibank.co.id"
                   className="search-input w-full pl-3"
                 />
               </div>

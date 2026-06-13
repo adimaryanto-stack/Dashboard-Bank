@@ -44,7 +44,7 @@ export default function ProfilInstitusiDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Institusi tidak ditemukan</h2>
+          <h2 className="text-xl font-bold text-text-primary mb-2">Sekolah tidak ditemukan</h2>
           <p className="text-text-muted mb-4">ID: {id}</p>
           <button onClick={() => router.back()} className="btn btn-primary">
             <ArrowLeft size={16} />
@@ -159,17 +159,22 @@ export default function ProfilInstitusiDetailPage() {
     }
 
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEditPB(row.id, field, value)}>
+      <td className="sheet-cell sheet-cell-editable text-right font-mono" onClick={() => startEditPB(row.id, field, value)}>
         {field === 'qty' ? value : fmtRupiah(value)}
       </td>
     );
   };
 
+  let segmentLabel = institusi.jenjang;
+  if (institusi.jenjang === 'UNIVERSITAS') segmentLabel = 'Universitas';
+  else if (institusi.jenjang === 'SMA') segmentLabel = 'SMA / SMK';
+  const layanan = institusi.status_sekolah === 'NEGERI' ? 'Konvensional' : 'Syariah';
+
   return (
     <div className="min-h-screen">
       <Header
-        title={`Profil: ${institusi.nama_institusi}`}
-        subtitle={`${institusi.jenjang} — ${institusi.kabupaten_kota_nama}, ${institusi.provinsi_nama} Tahun ${activeTahun}`}
+        title={`Detail Rekening: ${institusi.nama_institusi}`}
+        subtitle={`${segmentLabel} (${layanan}) — ${institusi.kabupaten_kota_nama}, ${institusi.provinsi_nama} T.A ${activeTahun}`}
       />
 
       <div className="p-6 space-y-6">
@@ -187,11 +192,11 @@ export default function ProfilInstitusiDetailPage() {
           <div className="metric-card accent-indigo col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <Banknote size={18} className="text-indigo-500" />
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Nama Institusi Pendidikan</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Nama Pemilik Rekening (Sekolah)</span>
             </div>
             <p className="text-lg font-bold text-text-primary mb-2">{institusi.nama_institusi}</p>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-text-muted">Nomor Rekening Bank Himbara:</span>
+              <span className="text-text-muted">No. Rekening Bank DaVinci:</span>
               {editingRekening ? (
                 <input
                   autoFocus
@@ -214,7 +219,7 @@ export default function ProfilInstitusiDetailPage() {
             </div>
           </div>
 
-          {/* Saldo Surplus / Defisit */}
+          {/* Saldo Rekening */}
           <div className={`metric-card ${saldoSurplusDefisit >= 0 ? 'accent-emerald' : 'accent-rose'}`}>
             <div className="flex items-center gap-2 mb-3">
               {saldoSurplusDefisit >= 0 ? (
@@ -222,13 +227,13 @@ export default function ProfilInstitusiDetailPage() {
               ) : (
                 <TrendingDown size={18} className="text-rose-500" />
               )}
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Saldo Surplus / Defisit</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Saldo Tersisa (Di Rekening)</span>
             </div>
             <p className={`text-2xl font-bold ${saldoSurplusDefisit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {fmtRupiah(saldoSurplusDefisit)}
             </p>
             <p className="text-xs text-text-muted mt-1">
-              {saldoSurplusDefisit >= 0 ? '✅ Surplus — dana tersisa' : '❌ Defisit — pengeluaran melebihi anggaran'}
+              {saldoSurplusDefisit >= 0 ? '✅ Dana berhasil ditransfer & sisa tersedia' : '⚠️ Overdraft — transfer tertunda/kurang'}
             </p>
           </div>
 
@@ -236,13 +241,13 @@ export default function ProfilInstitusiDetailPage() {
           <div className="metric-card accent-amber">
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={18} className="text-amber-500" />
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Total Pengeluaran Bulanan</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Total Mutasi Penarikan (OPEX)</span>
             </div>
             <p className="text-2xl font-bold text-text-primary">
               {fmtRupiah(totalPengeluaran)}
             </p>
             <p className="text-xs text-text-muted mt-1">
-              Total penggunaan anggaran s.d. Desember {activeTahun}
+              Total dana ditarik/dibelanjakan sekolah s.d. Desember {activeTahun}
             </p>
           </div>
         </div>
@@ -251,19 +256,19 @@ export default function ProfilInstitusiDetailPage() {
         <div>
           <div className="sheet-toolbar">
             <span className="text-sm font-bold text-text-primary">
-              📊 Tahun Anggaran (Sumber Dana)
+              📊 Detail Aliran Pagu Dana Masuk (T.A {activeTahun})
             </span>
-            <span className="text-xs text-text-muted flex-1">{sumberDana.length} sumber</span>
+            <span className="text-xs text-text-muted flex-1">{sumberDana.length} item pagu</span>
           </div>
           <div className="sheet-container" style={{ maxHeight: 'none' }}>
             <table className="w-full">
               <thead>
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                  <th className="sheet-header-cell text-left" style={{ minWidth: 300 }}>Tahun Anggaran (Sumber Dana)</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Nominal</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Realisasi</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Saldo di Bank</th>
+                  <th className="sheet-header-cell text-left" style={{ minWidth: 300 }}>Aliran Dana Pagu Masuk</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Pagu Alokasi (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Dana Cair/Terkirim (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Dana Pending (Rp)</th>
                 </tr>
               </thead>
               <tbody>
@@ -282,7 +287,7 @@ export default function ProfilInstitusiDetailPage() {
               <tfoot>
                 <tr>
                   <td className="sheet-footer-cell" />
-                  <td className="sheet-footer-cell text-left font-bold">TOTAL</td>
+                  <td className="sheet-footer-cell text-left font-bold">TOTAL PENYALURAN</td>
                   <td className="sheet-footer-cell text-right">{fmtRupiah(totalNominalSumber)}</td>
                   <td className="sheet-footer-cell text-right">{fmtRupiah(totalRealisasiSumber)}</td>
                   <td className={`sheet-footer-cell text-right font-bold ${totalSaldoDiBank >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -298,7 +303,7 @@ export default function ProfilInstitusiDetailPage() {
         <div>
           <div className="sheet-toolbar">
             <span className="text-sm font-bold text-text-primary">
-              📅 Rincian Penggunaan Anggaran Pendidikan {institusi.nama_institusi}
+              📅 Mutasi Pengeluaran / Penarikan Dana Rekening Sekolah
             </span>
           </div>
           <div className="sheet-container" style={{ maxHeight: 'none' }}>
@@ -306,10 +311,10 @@ export default function ProfilInstitusiDetailPage() {
               <thead>
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                  <th className="sheet-header-cell text-left" style={{ minWidth: 150 }}>Bulan Anggaran</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Nominal Pengeluaran</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 80 }}>Qty</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Sub Total</th>
+                  <th className="sheet-header-cell text-left" style={{ minWidth: 150 }}>Bulan Transaksi</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Jumlah Penarikan (Rp)</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 80 }}>Frekuensi</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Sub Total Pengeluaran (Rp)</th>
                 </tr>
               </thead>
               <tbody>
@@ -319,14 +324,14 @@ export default function ProfilInstitusiDetailPage() {
                     <td className="sheet-cell text-left font-medium text-text-primary">
                       <Link
                         href={`/dashboard/profil-institusi/${id}/rincian/${row.nomor}`}
-                        className="hover:text-accent hover:underline transition-colors"
+                        className="hover:text-accent hover:underline transition-colors text-indigo-700"
                       >
                         {row.bulan}
                       </Link>
                     </td>
                     {renderEditableCellPB(row, 'nominal_pengeluaran')}
                     {renderEditableCellPB(row, 'qty')}
-                    <td className="sheet-cell text-right font-medium text-text-primary">
+                    <td className="sheet-cell text-right font-medium text-text-primary font-mono">
                       {fmtRupiah(row.sub_total)}
                     </td>
                   </tr>
@@ -335,8 +340,8 @@ export default function ProfilInstitusiDetailPage() {
               <tfoot>
                 <tr>
                   <td className="sheet-footer-cell" />
-                  <td className="sheet-footer-cell text-left font-bold" colSpan={3}>Total</td>
-                  <td className={`sheet-footer-cell text-right font-bold ${totalPengeluaran <= totalRealisasiSumber ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <td className="sheet-footer-cell text-left font-bold" colSpan={3}>Total Mutasi Penarikan</td>
+                  <td className={`sheet-footer-cell text-right font-bold font-mono text-sm ${totalPengeluaran <= totalRealisasiSumber ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {fmtRupiah(totalPengeluaran)}
                   </td>
                 </tr>
@@ -346,7 +351,7 @@ export default function ProfilInstitusiDetailPage() {
         </div>
 
         <p className="text-xs text-text-muted">
-          ✏️ Klik sel Nominal, Realisasi, atau Qty untuk edit langsung • Kalkulasi Saldo di Bank dan Sub Total otomatis
+          ✏️ Klik sel Pagu, Transfer Terkirim, atau Qty Penarikan untuk simulasi edit langsung • Saldo & Mutasi bulanan berkalkulasi otomatis
         </p>
       </div>
     </div>

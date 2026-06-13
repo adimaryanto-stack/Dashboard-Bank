@@ -27,21 +27,21 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
       id: 'n1',
-      message: 'Anggaran APBN 2026 Provinsi Aceh berhasil dialokasikan.',
+      message: 'Dana Pagu APBN 2026 Provinsi Aceh sukses teralokasikan.',
       time: '10 menit yang lalu',
       unread: true,
       type: 'success',
     },
     {
       id: 'n2',
-      message: 'Realisasi Universitas Indonesia bulan Januari telah disinkronkan.',
+      message: 'Transfer dana Universitas Indonesia bulan Januari telah sukses dikreditkan.',
       time: '1 jam yang lalu',
       unread: true,
       type: 'info',
     },
     {
       id: 'n3',
-      message: 'Peringatan: Penyerapan Kabupaten Ogan Komering Ulu di bawah 50%.',
+      message: 'Peringatan: Penyaluran dana Area Ogan Komering Ulu di bawah 50%.',
       time: '3 jam yang lalu',
       unread: true,
       type: 'warning',
@@ -178,7 +178,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                   </div>
                   
                   <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-center">
-                    <span className="text-[10px] text-slate-400 font-semibold">Sistem Transparansi Pendidikan v1.0</span>
+                    <span className="text-[10px] text-slate-400 font-semibold">DaVinci Bank — Portal Penyaluran Anggaran v1.0</span>
                   </div>
                 </div>
               </>

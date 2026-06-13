@@ -342,14 +342,14 @@ export function getInstitusiByJenjang(jenjang: Jenjang): InstitusiPendidikan[] {
 
 // === USERS ===
 export const usersData: User[] = [
-  { id: 'u1', username: 'superadmin', email: 'admin@kemdikbud.go.id', role: 'SUPER_ADMIN', is_active: true, created_at: '2024-01-01' },
-  { id: 'u2', username: 'ahmad.fauzi', email: 'a.fauzi@kemdikbud.go.id', role: 'ADMIN', is_active: true, created_at: '2024-02-15' },
-  { id: 'u3', username: 'sari.dewi', email: 's.dewi@jabar.go.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-12', is_active: true, created_at: '2024-03-10' },
-  { id: 'u4', username: 'budi.santoso', email: 'b.santoso@bandung.go.id', role: 'ADMIN_KABKOTA', kabupaten_kota_id: 'k-p-12-3', is_active: true, created_at: '2024-04-20' },
-  { id: 'u5', username: 'viewer.nasional', email: 'viewer@kemdikbud.go.id', role: 'VIEWER', is_active: true, created_at: '2024-05-01' },
-  { id: 'u6', username: 'auditor.bpk', email: 'audit@bpk.go.id', role: 'AUDITOR', is_active: true, created_at: '2024-06-01' },
-  { id: 'u7', username: 'rina.wulan', email: 'r.wulan@jatim.go.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-15', is_active: true, created_at: '2024-07-01' },
-  { id: 'u8', username: 'doni.pratama', email: 'd.pratama@kemdikbud.go.id', role: 'ADMIN', is_active: false, created_at: '2024-01-15' },
+  { id: 'u1', username: 'superadmin', email: 'superadmin@davincibank.co.id', role: 'SUPER_ADMIN', is_active: true, created_at: '2024-01-01' },
+  { id: 'u2', username: 'ahmad.fauzi', email: 'ahmad.fauzi@davincibank.co.id', role: 'ADMIN', is_active: true, created_at: '2024-02-15' },
+  { id: 'u3', username: 'sari.dewi', email: 'sari.dewi@regional.davincibank.co.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-12', is_active: true, created_at: '2024-03-10' },
+  { id: 'u4', username: 'budi.santoso', email: 'budi.santoso@area.davincibank.co.id', role: 'ADMIN_KABKOTA', kabupaten_kota_id: 'k-p-12-3', is_active: true, created_at: '2024-04-20' },
+  { id: 'u5', username: 'viewer.nasional', email: 'viewer@davincibank.co.id', role: 'VIEWER', is_active: true, created_at: '2024-05-01' },
+  { id: 'u6', username: 'auditor.bpk', email: 'auditor.internal@davincibank.co.id', role: 'AUDITOR', is_active: true, created_at: '2024-06-01' },
+  { id: 'u7', username: 'rina.wulan', email: 'rina.wulan@regional.davincibank.co.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-15', is_active: true, created_at: '2024-07-01' },
+  { id: 'u8', username: 'doni.pratama', email: 'doni.pratama@davincibank.co.id', role: 'ADMIN', is_active: false, created_at: '2024-01-15' },
 ];
 
 // === DASHBOARD SUMMARY ===
@@ -425,43 +425,76 @@ const monthlyPctDistribution = [
 ];
 
 function generateSumberDana(institusi: InstitusiPendidikan, tahun: number = 2026): SumberDanaInstitusi[] {
-  const apbnNominal = Math.round(institusi.nominal_alokasi * 0.65);
-  const apbdNominal = Math.round(institusi.nominal_alokasi * 0.20);
-  const csrNominal = institusi.nominal_alokasi - apbnNominal - apbdNominal;
+  const apbnTotalNom = Math.round(institusi.nominal_alokasi * 0.65);
+  const apbdTotalNom = Math.round(institusi.nominal_alokasi * 0.20);
+  const csrTotalNom = institusi.nominal_alokasi - apbnTotalNom - apbdTotalNom;
 
-  const apbnRealisasi = Math.round(institusi.realisasi_total * 0.65);
-  const apbdRealisasi = Math.round(institusi.realisasi_total * 0.20);
-  const csrRealisasi = institusi.realisasi_total - apbnRealisasi - apbdRealisasi;
+  const apbnTotalReal = Math.round(institusi.realisasi_total * 0.65);
+  const apbdTotalReal = Math.round(institusi.realisasi_total * 0.20);
+  const csrTotalReal = institusi.realisasi_total - apbnTotalReal - apbdTotalReal;
 
-  const items: SumberDanaInstitusi[] = [
-    {
-      id: `sd-${institusi.id}-1`,
-      institusi_id: institusi.id,
-      nama_sumber: `APBN Pendidikan (Pemerintah Pusat) ${tahun}`,
-      tahun_anggaran: String(tahun),
-      nominal: apbnNominal,
-      realisasi: apbnRealisasi,
-      saldo_di_bank: apbnNominal - apbnRealisasi,
-    },
-    {
-      id: `sd-${institusi.id}-2`,
-      institusi_id: institusi.id,
-      nama_sumber: `APBD ${institusi.kabupaten_kota_nama} ${tahun}`,
-      tahun_anggaran: String(tahun),
-      nominal: apbdNominal,
-      realisasi: apbdRealisasi,
-      saldo_di_bank: apbdNominal - apbdRealisasi,
-    },
-    {
-      id: `sd-${institusi.id}-3`,
-      institusi_id: institusi.id,
-      nama_sumber: `Corporate Social Responsibility (CSR Swasta) ${tahun}`,
-      tahun_anggaran: String(tahun),
-      nominal: csrNominal,
-      realisasi: csrRealisasi,
-      saldo_di_bank: csrNominal - csrRealisasi,
-    },
-  ];
+  const items: SumberDanaInstitusi[] = [];
+
+  // Helper to split a total nominal and realisasi into N terms
+  const distributeToTerms = (
+    prefix: string,
+    totalNom: number,
+    totalReal: number,
+    termCount: number,
+    months: string[]
+  ) => {
+    let remainingReal = totalReal;
+    let distributedNom = 0;
+    
+    for (let i = 0; i < termCount; i++) {
+      const isLast = i === termCount - 1;
+      const termNom = isLast ? (totalNom - distributedNom) : Math.round(totalNom / termCount);
+      distributedNom += termNom;
+
+      // Realisasi is filled sequentially (e.g. earlier terms get filled first)
+      const termReal = Math.min(termNom, remainingReal);
+      remainingReal -= termReal;
+
+      items.push({
+        id: `sd-${institusi.id}-${prefix.toLowerCase().replace(/[^a-z0-9]/g, '')}-${i + 1}`,
+        institusi_id: institusi.id,
+        nama_sumber: `${prefix} — Term ${i + 1} (${months[i]})`,
+        tahun_anggaran: String(tahun),
+        nominal: termNom,
+        realisasi: termReal,
+        saldo_di_bank: termNom - termReal,
+      });
+    }
+  };
+
+  // APBN disalurkan tiap 3 bulan (Maret, Juni, September, Desember)
+  distributeToTerms(
+    'Penyaluran APBN (Pusat)',
+    apbnTotalNom,
+    apbnTotalReal,
+    4,
+    ['Maret', 'Juni', 'September', 'Desember']
+  );
+
+  // APBD disalurkan tiap 3 bulan (April, Juli, Oktober, Desember)
+  distributeToTerms(
+    'Penyaluran APBD (Daerah)',
+    apbdTotalNom,
+    apbdTotalReal,
+    4,
+    ['April', 'Juli', 'Oktober', 'Desember']
+  );
+
+  // CSR disalurkan 1 kali (Term 1 / Mei)
+  items.push({
+    id: `sd-${institusi.id}-csr-1`,
+    institusi_id: institusi.id,
+    nama_sumber: `Dana Hibah & CSR Mitra — Sekaligus (Mei)`,
+    tahun_anggaran: String(tahun),
+    nominal: csrTotalNom,
+    realisasi: csrTotalReal,
+    saldo_di_bank: csrTotalNom - csrTotalReal,
+  });
 
   return items;
 }

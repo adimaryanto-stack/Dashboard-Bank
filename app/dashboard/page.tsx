@@ -5,11 +5,11 @@ import Header from '@/components/layout/Header';
 import MetricCard from '@/components/ui/MetricCard';
 import PctBadge from '@/components/ui/PctBadge';
 import { getDashboardSummary } from '@/lib/data';
-import { fmtTriliun, fmtPct, getPctColor } from '@/lib/utils/formatters';
+import { fmtTriliun, fmtPct } from '@/lib/utils/formatters';
 import { Wallet, TrendingUp, PieChart, GraduationCap } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, Area, AreaChart
+  Legend, Area, AreaChart
 } from 'recharts';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -32,51 +32,51 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Dashboard" subtitle="Ringkasan nasional anggaran Kementerian Pendidikan RI" />
+      <Header title="Dashboard Bank" subtitle="Portal Penyaluran Anggaran Pendidikan Nasional" />
 
       <div className="p-6 space-y-6">
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
-            title="Total Nominal APBN"
+            title="Total Pagu Pusat"
             value={fmtTriliun(summary.total_nominal)}
-            subtitle={`Anggaran Kemdikbud ${activeTahun}`}
+            subtitle={`Pagu Dana Pendidikan T.A ${activeTahun}`}
             icon={<Wallet size={20} className="text-indigo-600" />}
             accent="indigo"
             trend={{ value: 6.4, label: `dari ${activeTahun - 1}` }}
           />
           <MetricCard
-            title="Total Realisasi"
+            title="Total Dana Cair"
             value={fmtTriliun(summary.total_realisasi)}
-            subtitle="Penyerapan anggaran terkini"
+            subtitle="Sukses ditransfer ke rekening sekolah"
             icon={<TrendingUp size={20} className="text-emerald-600" />}
             accent="emerald"
             trend={{ value: 4.2, label: 'dari bulan lalu' }}
           />
           <MetricCard
-            title="% Penyerapan Nasional"
+            title="% Penyaluran Sukses"
             value={fmtPct(summary.persentase_penyerapan)}
-            subtitle="Target minimal 80%"
+            subtitle="Target keberhasilan transfer 95%"
             icon={<PieChart size={20} className="text-amber-600" />}
             accent="amber"
           />
         </div>
 
-        {/* Ringkasan per Jenjang */}
+        {/* Ringkasan per Kategori Sekolah */}
         <div className="glass-card overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
             <GraduationCap size={18} className="text-indigo-600" />
-            <h3 className="text-sm font-semibold text-text-primary">Ringkasan per Jenjang Pendidikan</h3>
+            <h3 className="text-sm font-semibold text-text-primary">Ringkasan Penyaluran per Kategori Sekolah</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="sheet-header-cell text-left">Jenjang</th>
-                  <th className="sheet-header-cell text-right">Nominal</th>
-                  <th className="sheet-header-cell text-right">Realisasi</th>
-                  <th className="sheet-header-cell text-right">Selisih</th>
-                  <th className="sheet-header-cell text-center">% Penyerapan</th>
+                  <th className="sheet-header-cell text-left">Kategori Penerima</th>
+                  <th className="sheet-header-cell text-right">Alokasi Pagu</th>
+                  <th className="sheet-header-cell text-right">Dana Cair</th>
+                  <th className="sheet-header-cell text-right">Dana Pending</th>
+                  <th className="sheet-header-cell text-center">% Penyaluran</th>
                   <th className="sheet-header-cell" style={{ width: 180 }}>Progress</th>
                 </tr>
               </thead>
@@ -84,13 +84,19 @@ export default function DashboardPage() {
                 {summary.per_jenjang.map((j, idx) => {
                   const selisih = j.nominal - j.realisasi;
                   const barColor = j.persentase >= 80 ? '#10b981' : j.persentase >= 50 ? '#f59e0b' : '#ef4444';
+                  
+                  // Label display mapping
+                  let segmentLabel = j.jenjang;
+                  if (j.jenjang === 'UNIVERSITAS') segmentLabel = 'Universitas';
+                  else if (j.jenjang === 'SMA') segmentLabel = 'SMA / SMK';
+                  
                   return (
                     <tr key={j.jenjang} className="hover:bg-indigo-50/50 transition" style={{ animationDelay: `${idx * 80}ms` }}>
                       <td className="sheet-cell text-left font-medium text-text-primary">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full" style={{ background: barColor }} />
                           <Link href={`/dashboard/jenjang/${j.jenjang.toLowerCase()}`} className="hover:text-accent hover:underline transition-colors">
-                            {j.jenjang}
+                            {segmentLabel}
                           </Link>
                         </div>
                       </td>
@@ -145,7 +151,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Bar Chart */}
           <div className="glass-card p-5">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">Nominal vs Realisasi per Jenjang</h3>
+            <h3 className="text-sm font-semibold text-text-primary mb-4">Pagu Pusat vs Dana Cair per Kategori</h3>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={barData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -153,9 +159,9 @@ export default function DashboardPage() {
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)} T`, '']}
+                  formatter={(value: number, name: string) => [`${value.toFixed(1)} T`, name === 'Nominal' ? 'Pagu Alokasi' : 'Dana Cair']}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+                <Legend formatter={(value: string) => value === 'Nominal' ? 'Pagu Alokasi' : 'Dana Cair'} wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Bar dataKey="Nominal" fill="#6366f1" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Realisasi" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -164,7 +170,7 @@ export default function DashboardPage() {
 
           {/* Trend Line Chart */}
           <div className="glass-card p-5">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">Tren APBN Pendidikan 2020–2026</h3>
+            <h3 className="text-sm font-semibold text-text-primary mb-4">Tren Penyaluran Dana Pendidikan 2020–2026</h3>
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={trendData}>
                 <defs>
@@ -182,9 +188,9 @@ export default function DashboardPage() {
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)} T`, '']}
+                  formatter={(value: number, name: string) => [`${value.toFixed(1)} T`, name === 'Nominal' ? 'Pagu Alokasi' : 'Dana Cair']}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+                <Legend formatter={(value: string) => value === 'Nominal' ? 'Pagu Alokasi' : 'Dana Cair'} wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Area type="monotone" dataKey="Nominal" stroke="#6366f1" fill="url(#gradNominal)" strokeWidth={2} />
                 <Area type="monotone" dataKey="Realisasi" stroke="#10b981" fill="url(#gradRealisasi)" strokeWidth={2} />
               </AreaChart>

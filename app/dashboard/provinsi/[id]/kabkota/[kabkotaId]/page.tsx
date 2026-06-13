@@ -4,11 +4,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
-import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
 import { alokasiProvinsiData, getKabkotaByProvinsi, getJenjangBreakdownByKabkota, getInstitusiByKabkota, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
-import { AlokasiProvinsi, AlokasiKabupatenKota, InstitusiPendidikan } from '@/types';
+import { AlokasiKabupatenKota, InstitusiPendidikan } from '@/types';
 import { ArrowLeft, Banknote, Download, School, Sparkles } from 'lucide-react';
 
 export default function KabkotaDetailPage() {
@@ -87,7 +86,7 @@ export default function KabkotaDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-xl shadow-md border border-slate-100 max-w-md">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Daerah Tidak Ditemukan</h2>
+          <h2 className="text-xl font-bold text-text-primary mb-2">Area Tidak Ditemukan</h2>
           <p className="text-text-muted mb-6">Data Wilayah / Kabupaten tidak terdaftar di sistem.</p>
           <button onClick={() => router.back()} className="btn btn-primary inline-flex items-center gap-2">
             <ArrowLeft size={16} />
@@ -174,18 +173,29 @@ export default function KabkotaDetailPage() {
     );
   };
 
+  // Status Pencairan display helper
+  const getPencairanStatusBadge = (pct: number) => {
+    if (pct >= 100) {
+      return <span className="badge bg-emerald-100 text-emerald-700 border-emerald-300">🟢 Sudah Masuk</span>;
+    }
+    if (pct > 0) {
+      return <span className="badge bg-amber-100 text-amber-700 border-amber-300">🟡 Proses ({pct}%)</span>;
+    }
+    return <span className="badge bg-rose-100 text-rose-700 border-rose-300">🔴 Belum Masuk</span>;
+  };
+
   return (
     <div className="min-h-screen">
       <Header
-        title={`Rincian Kabupaten/Kota: ${kabkotaData.kabupaten_kota.nama_kabupaten_kota}`}
-        subtitle={`Provinsi ${provData.provinsi.nama_provinsi} — Anggaran Sekolah & Institusi Tahun ${activeTahun}`}
+        title={`Penyaluran Area: ${kabkotaData.kabupaten_kota.nama_kabupaten_kota}`}
+        subtitle={`Provinsi ${provData.provinsi.nama_provinsi} — Status Pencairan Rekening Sekolah Tahun ${activeTahun}`}
       />
 
       <div className="p-6 space-y-6">
         {/* Navigation & Actions */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2 text-sm text-text-muted">
-            <Link href="/dashboard/provinsi" className="hover:text-accent hover:underline">Provinsi</Link>
+            <Link href="/dashboard/provinsi" className="hover:text-accent hover:underline">Penyaluran Wilayah</Link>
             <span>➔</span>
             <Link href={`/dashboard/provinsi/${id}`} className="hover:text-accent hover:underline">{provData.provinsi.nama_provinsi}</Link>
             <span>➔</span>
@@ -217,7 +227,7 @@ export default function KabkotaDetailPage() {
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Sparkles size={16} className="text-indigo-500" />
-              Tabel Summary Anggaran Wilayah Kabupaten/Kota
+              Summary Penyaluran Dana Area
             </h3>
             <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Summary]</span>
           </div>
@@ -228,10 +238,10 @@ export default function KabkotaDetailPage() {
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
                   <th className="sheet-header-cell text-center" style={{ width: 160 }}>Tahun Anggaran</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Nominal</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Realisasi</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Nominal Selisih</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 200 }}>Persentase penyerapan</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Alokasi Pagu</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Dana Cair</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 200 }}>Dana Pending</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 200 }}>Rasio Penyaluran</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,15 +267,15 @@ export default function KabkotaDetailPage() {
         </div>
 
         {/* ============================================================ */}
-        {/* 2. JENJANG PENDIDIKAN TABLE */}
+        {/* 2. KATEGORI SEKOLAH TABLE */}
         {/* ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <School size={16} className="text-indigo-500" />
-              Jumlah & Anggaran Pendidikan per Tingkatan Sekolah
+              Porsi Penyaluran per Kategori Sekolah
             </h3>
-            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Proporsi Sekolah]</span>
+            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Proporsi Kategori]</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -273,28 +283,37 @@ export default function KabkotaDetailPage() {
               <thead>
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
-                  <th className="sheet-header-cell text-left">Jenjang Pendidikan</th>
+                  <th className="sheet-header-cell text-left">Kategori Penerima</th>
                   <th className="sheet-header-cell text-right" style={{ width: 180 }}>Jumlah Sekolah</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 240 }}>Nominal Keseluruhan</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Porsi Anggaran (%)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 240 }}>Pagu Alokasi</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Porsi Dana (%)</th>
                 </tr>
               </thead>
               <tbody>
-                {jenjangBreakdown.map((row) => (
-                  <tr key={row.nomor} className="hover:bg-indigo-50/50 transition">
-                    <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
-                    <td className="sheet-cell text-left font-semibold text-slate-700">{row.jenjang}</td>
-                    <td className="sheet-cell text-right font-mono text-text-primary font-medium">{row.jumlah_sekolah}</td>
-                    <td className="sheet-cell text-right font-mono font-medium text-indigo-700 bg-indigo-50/10">
-                      {fmtRupiah(row.nominal_keseluruhan)}
-                    </td>
-                    <td className="sheet-cell text-center">
-                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
-                        {row.porsi_anggaran}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {jenjangBreakdown.map((row) => {
+                  let label = row.jenjang;
+                  if (row.jenjang.includes('Universitas')) label = 'Universitas';
+                  else if (row.jenjang.includes('Sekolah Menengah Atas')) label = 'SMA / SMK';
+                  else if (row.jenjang.includes('Sekolah Menengah Pertama')) label = 'SMP';
+                  else if (row.jenjang.includes('Sekolah Dasar')) label = 'SD';
+                  else if (row.jenjang.includes('Anak Usia Dini')) label = 'PAUD';
+                  
+                  return (
+                    <tr key={row.nomor} className="hover:bg-indigo-50/50 transition">
+                      <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
+                      <td className="sheet-cell text-left font-semibold text-slate-700">{label}</td>
+                      <td className="sheet-cell text-right font-mono text-text-primary font-medium">{row.jumlah_sekolah}</td>
+                      <td className="sheet-cell text-right font-mono font-medium text-indigo-700 bg-indigo-50/10">
+                        {fmtRupiah(row.nominal_keseluruhan)}
+                      </td>
+                      <td className="sheet-cell text-center">
+                        <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
+                          {row.porsi_anggaran}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -306,9 +325,9 @@ export default function KabkotaDetailPage() {
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-              Rincian Pembagian Anggaran Ke Instansi Sekolah di {kabkotaData.kabupaten_kota.nama_kabupaten_kota}
+              Status Pencairan Dana ke Rekening Sekolah di {kabkotaData.kabupaten_kota.nama_kabupaten_kota}
             </h3>
-            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Alokasi Sekolah]</span>
+            <span className="text-xs text-text-muted font-medium font-mono">[Sheet: Rekening Penerima]</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -316,12 +335,12 @@ export default function KabkotaDetailPage() {
               <thead>
                 <tr>
                   <th className="sheet-header-cell text-center" style={{ width: 80 }}>Nomor</th>
-                  <th className="sheet-header-cell text-left">Nama Sekolah / Universitas</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 140 }}>Status</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Nominal Anggaran</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Realisasi</th>
-                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Nominal Selisih</th>
-                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Persentase penyerapan</th>
+                  <th className="sheet-header-cell text-left">Nama Sekolah / Rekening Penerima</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 140 }}>Layanan</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Alokasi Pagu (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Dana Cair (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 220 }}>Dana Pending (Rp)</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 180 }}>Status Pencairan</th>
                 </tr>
               </thead>
               <tbody>
@@ -329,13 +348,9 @@ export default function KabkotaDetailPage() {
                   <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                     <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
                     <td className="sheet-cell text-left font-semibold text-slate-700">
-                      {row.jenjang === 'UNIVERSITAS' ? (
-                        <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors text-indigo-700">
-                          {row.nama_institusi}
-                        </Link>
-                      ) : (
-                        <span>{row.nama_institusi}</span>
-                      )}
+                      <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors text-indigo-700">
+                        {row.nama_institusi}
+                      </Link>
                     </td>
                     <td className="sheet-cell text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -343,7 +358,7 @@ export default function KabkotaDetailPage() {
                           ? 'bg-blue-100 text-blue-800 border border-blue-200' 
                           : 'bg-purple-100 text-purple-800 border border-purple-200'
                       }`}>
-                        {row.status_sekolah}
+                        {row.status_sekolah === 'NEGERI' ? 'Konvensional' : 'Syariah'}
                       </span>
                     </td>
                     {renderEditableCell(row, 'nominal_alokasi')}
@@ -352,7 +367,7 @@ export default function KabkotaDetailPage() {
                       {fmtRupiah(row.selisih)}
                     </td>
                     <td className="sheet-cell text-center">
-                      <PctBadge value={row.persentase_penyerapan} />
+                      {getPencairanStatusBadge(row.persentase_penyerapan)}
                     </td>
                   </tr>
                 ))}
@@ -361,7 +376,7 @@ export default function KabkotaDetailPage() {
                 {/* Realisasi Anggaran Row (Identical to Google Sheets Screenshot) */}
                 <tr className="border-t-2 border-slate-300">
                   <td className="sheet-cell font-bold text-center bg-emerald-100 text-emerald-800 border-r border-slate-200" colSpan={3}>
-                    Realisasi Anggaran
+                    Realisasi Dana Cair
                   </td>
                   <td className="sheet-cell text-right font-bold bg-emerald-500 text-white font-mono border-r border-slate-200 text-sm">
                     {fmtRupiah(totals.realisasi)}
@@ -380,7 +395,7 @@ export default function KabkotaDetailPage() {
 
         <p className="text-xs text-text-muted flex items-center gap-1">
           <span>✏️</span>
-          <span>Klik langsung pada kolom <strong>Nominal Anggaran</strong> atau <strong>Realisasi</strong> untuk mengubah data • Tekan <strong>Enter</strong> untuk menyimpan</span>
+          <span>Klik langsung pada kolom <strong>Alokasi Pagu</strong> atau <strong>Dana Cair</strong> untuk mengubah data transfer • Tekan <strong>Enter</strong> untuk menyimpan</span>
         </p>
       </div>
     </div>

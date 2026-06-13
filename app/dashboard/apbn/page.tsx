@@ -8,7 +8,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { tahunAnggaranData, updateTahunAnggaranData } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { TahunAnggaran, BudgetStatus } from '@/types';
-import { Plus, Eye, Power, Lock, Trash2, Edit3 } from 'lucide-react';
+import { Plus, Eye, Power, Lock, Trash2 } from 'lucide-react';
 
 export default function APBNPage() {
   const { setActiveTahun } = useAppStore();
@@ -83,13 +83,13 @@ export default function APBNPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="APBN Pertahun" subtitle="Kelola tahun anggaran pendidikan APBN" />
+      <Header title="Kelola Pagu Pusat" subtitle="Kelola pagu dana pendidikan pusat per tahun anggaran" />
 
       <div className="p-6">
         {/* Toolbar */}
         <div className="sheet-toolbar">
           <h3 className="text-sm font-semibold text-text-primary flex-1">
-            APBN Pendidikan Pertahun
+            Pagu Dana Pusat Pertahun (APBN)
           </h3>
           <span className="text-xs text-text-muted">{data.length} tahun</span>
           <button onClick={() => setShowModal(true)} className="btn btn-primary">
@@ -105,7 +105,7 @@ export default function APBNPage() {
               <tr>
                 <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
                 <th className="sheet-header-cell text-center" style={{ width: 100 }}>Tahun</th>
-                <th className="sheet-header-cell text-right">Total Anggaran (APBN Pendidikan)</th>
+                <th className="sheet-header-cell text-right">Total Pagu Anggaran Pusat (Rp)</th>
                 <th className="sheet-header-cell text-center" style={{ width: 120 }}>Status</th>
                 <th className="sheet-header-cell text-center" style={{ width: 200 }}>Aksi</th>
               </tr>
@@ -184,7 +184,7 @@ export default function APBNPage() {
             <span className="w-2 h-2 rounded-full bg-blue-500" /> DRAFT — Baru, bisa diedit & dihapus
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> ACTIVE — Tahun berjalan (hanya 1)
+            <span className="w-2 h-2 rounded-full bg-emerald-500" /> ACTIVE — Tahun berjalan aktif (hanya 1)
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-gray-400" /> CLOSED — Arsip, read-only
@@ -192,11 +192,11 @@ export default function APBNPage() {
         </div>
       </div>
 
-      {/* Add Modal */}
+      {/* Add Year Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-4">Tambah Tahun Anggaran</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-4">Tambah Tahun & Pagu Pusat</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-text-secondary block mb-1">Tahun</label>
@@ -204,12 +204,12 @@ export default function APBNPage() {
                   type="number"
                   value={newTahun}
                   onChange={(e) => setNewTahun(e.target.value)}
-                  placeholder="2028"
+                  placeholder="2027"
                   className="search-input w-full pl-3"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-text-secondary block mb-1">Total Anggaran (Rp)</label>
+                <label className="text-xs font-medium text-text-secondary block mb-1">Total Pagu Anggaran Pusat (Rp)</label>
                 <input
                   type="number"
                   value={newTotal}
