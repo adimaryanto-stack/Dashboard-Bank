@@ -6,9 +6,10 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
-import { getInstitusiByJenjang, alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
+import { getInstitusiByJenjang, getAlokasiProvinsi, getKabkotaByProvinsi } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
-import { Jenjang, InstitusiPendidikan } from '@/types';
+import { Jenjang, InstitusiPendidikan, AlokasiProvinsi, AlokasiKabupatenKota } from '@/types';
 import { Search, Download, Plus, Upload } from 'lucide-react';
 
 const jenjangLabels: Record<string, { label: string; jenjang: Jenjang }> = {
@@ -25,32 +26,30 @@ export default function JenjangPage() {
   const config = jenjangLabels[slug] || jenjangLabels.universitas;
   const { activeTahun } = useAppStore();
 
-  const rawData = useMemo(() => {
-    const list = getInstitusiByJenjang(config.jenjang);
-    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
-    const baseTahun = tahunAnggaranData[6];
-    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-    const seed = (activeTahun % 7) || 1;
-    const shift = 0.95 + (seed * 0.012);
+  const [data, setData] = useState<InstitusiPendidikan[]>([]);
+  const [provinsiList, setProvinsiList] = useState<AlokasiProvinsi[]>([]);
+  const [kabkotaOptions, setKabkotaOptions] = useState<AlokasiKabupatenKota[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    return list.map(item => {
-      const nominal = Math.round(item.nominal_alokasi * scale);
-      const realisasi = Math.min(nominal, Math.round(item.realisasi_total * scale * shift));
-      return {
-        ...item,
-        nominal_alokasi: nominal,
-        realisasi_total: realisasi,
-        selisih: nominal - realisasi,
-        persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
-      };
-    });
-  }, [config.jenjang, activeTahun]);
-
-  const [data, setData] = useState<InstitusiPendidikan[]>(rawData);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [list, provs] = await Promise.all([
+        getInstitusiByJenjang(config.jenjang),
+        getAlokasiProvinsi(activeTahun),
+      ]);
+      setData(list);
+      setProvinsiList(provs);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setData(rawData);
-  }, [rawData]);
+    fetchData();
+  }, [config.jenjang, activeTahun]);
 
   const [search, setSearch] = useState('');
   const [selectedProvinsiId, setSelectedProvinsiId] = useState('');
@@ -59,6 +58,16 @@ export default function JenjangPage() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
   const [editValue, setEditValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectedProvinsiId) {
+      setKabkotaOptions([]);
+      return;
+    }
+    getKabkotaByProvinsi(selectedProvinsiId, activeTahun)
+      .then(setKabkotaOptions)
+      .catch(console.error);
+  }, [selectedProvinsiId, activeTahun]);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,7 +79,6 @@ export default function JenjangPage() {
       const lines = csvText.split('\n');
       
       const newItems: InstitusiPendidikan[] = [];
-      // Skip header line
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const columns = lines[i].split(',');
@@ -106,19 +114,11 @@ export default function JenjangPage() {
     reader.readAsText(file);
   };
 
-  // Reset when jenjang changes
-  useMemo(() => { setData(rawData); }, [rawData]);
-
-  const kabkotaOptions = useMemo(() => {
-    if (!selectedProvinsiId) return [];
-    return getKabkotaByProvinsi(selectedProvinsiId);
-  }, [selectedProvinsiId]);
-
   const filtered = useMemo(() => {
     let result = data;
     
     if (selectedProvinsiId) {
-      const prov = alokasiProvinsiData.find(p => p.provinsi_id === selectedProvinsiId);
+      const prov = provinsiList.find(p => p.provinsi_id === selectedProvinsiId);
       if (prov) {
         result = result.filter(inst => inst.provinsi_nama === prov.provinsi.nama_provinsi);
       }
@@ -136,7 +136,7 @@ export default function JenjangPage() {
       result = result.filter(inst => inst.nama_institusi.toLowerCase().includes(search.toLowerCase()));
     }
     return result;
-  }, [data, search, selectedProvinsiId, selectedKabKotaName, selectedStatus]);
+  }, [data, search, selectedProvinsiId, selectedKabKotaName, selectedStatus, provinsiList]);
 
   const totals = useMemo(() => {
     const nom = filtered.reduce((s, i) => s + i.nominal_alokasi, 0);
@@ -149,11 +149,18 @@ export default function JenjangPage() {
     setEditValue(String(value));
   };
 
-  const commitEdit = () => {
+  const commitEdit = async () => {
     if (!editingCell) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setData(prev => prev.map(inst => {
+      const targetSchool = data.find(inst => inst.id === editingCell.id);
+      if (!targetSchool) {
+        setEditingCell(null);
+        return;
+      }
+
+      // 1. Update local state
+      const updatedData = data.map(inst => {
         if (inst.id !== editingCell.id) return inst;
         const nominal = editingCell.field === 'nominal' ? parsed : inst.nominal_alokasi;
         const realisasi = editingCell.field === 'realisasi' ? parsed : inst.realisasi_total;
@@ -164,7 +171,94 @@ export default function JenjangPage() {
           selisih: nominal - realisasi,
           persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
         };
-      }));
+      });
+      setData(updatedData);
+
+      // 2. Update school in DB (if not a mock ID)
+      if (!editingCell.id.startsWith('inst-')) {
+        const fieldName = editingCell.field === 'nominal' ? 'nominal_alokasi' : 'realisasi_total';
+        const { error: schoolError } = await supabase
+          .from('institusi_pendidikan')
+          .update({ [fieldName]: parsed })
+          .eq('id', editingCell.id);
+
+        if (schoolError) {
+          console.error(schoolError);
+          alert('Gagal menyimpan perubahan sekolah ke database.');
+          fetchData();
+          setEditingCell(null);
+          return;
+        }
+      }
+
+      // 3. Recalculate aggregates
+      const { data: dbSchools, error: schoolsError } = await supabase
+        .from('institusi_pendidikan')
+        .select('id, nominal_alokasi, realisasi_total')
+        .eq('kabupaten_kota_id', targetSchool.kabupaten_kota_id);
+
+      if (!schoolsError && dbSchools) {
+        const newKabNominal = dbSchools.reduce((sum, item) => {
+          if (item.id === targetSchool.id) return sum + (editingCell.field === 'nominal' ? parsed : Number(item.nominal_alokasi));
+          return sum + Number(item.nominal_alokasi);
+        }, 0);
+
+        const newKabRealisasi = dbSchools.reduce((sum, item) => {
+          if (item.id === targetSchool.id) return sum + (editingCell.field === 'realisasi' ? parsed : Number(item.realisasi_total));
+          return sum + Number(item.realisasi_total);
+        }, 0);
+
+        const { data: yearRow } = await supabase
+          .from('tahun_anggaran')
+          .select('id')
+          .eq('tahun', activeTahun)
+          .single();
+
+        if (yearRow) {
+          const { data: kabRow } = await supabase
+            .from('alokasi_kabupaten_kota')
+            .select('id, alokasi_provinsi_id')
+            .eq('kabupaten_kota_id', targetSchool.kabupaten_kota_id)
+            .single();
+
+          if (kabRow) {
+            const { error: kabError } = await supabase
+              .from('alokasi_kabupaten_kota')
+              .update({
+                nominal_alokasi: newKabNominal,
+                realisasi_total: newKabRealisasi,
+              })
+              .eq('id', kabRow.id);
+
+            if (!kabError) {
+              const { data: kabList } = await supabase
+                .from('alokasi_kabupaten_kota')
+                .select('id, nominal_alokasi, realisasi_total')
+                .eq('alokasi_provinsi_id', kabRow.alokasi_provinsi_id);
+
+              if (kabList) {
+                const newProvNominal = kabList.reduce((sum, item) => {
+                  if (item.id === kabRow.id) return sum + newKabNominal;
+                  return sum + Number(item.nominal_alokasi);
+                }, 0);
+
+                const newProvRealisasi = kabList.reduce((sum, item) => {
+                  if (item.id === kabRow.id) return sum + newKabRealisasi;
+                  return sum + Number(item.realisasi_total);
+                }, 0);
+
+                await supabase
+                  .from('alokasi_provinsi')
+                  .update({
+                    nominal_alokasi: newProvNominal,
+                    realisasi_total: newProvRealisasi,
+                  })
+                  .eq('id', kabRow.alokasi_provinsi_id);
+              }
+            }
+          }
+        }
+      }
     }
     setEditingCell(null);
   };
@@ -210,6 +304,17 @@ export default function JenjangPage() {
     return <span className="badge bg-rose-100 text-rose-700 border-rose-300">🔴 Belum Masuk</span>;
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title={`Kategori: ${config.label}`} subtitle={`Daftar status pencairan dana APBN Pendidikan kategori ${config.label} Tahun ${activeTahun}`} />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <Header title={`Kategori: ${config.label}`} subtitle={`Daftar status pencairan dana APBN Pendidikan kategori ${config.label} Tahun ${activeTahun}`} />
@@ -228,7 +333,7 @@ export default function JenjangPage() {
               className="select-dropdown"
             >
               <option value="">Semua Provinsi</option>
-              {alokasiProvinsiData.map(p => (
+              {provinsiList.map(p => (
                 <option key={p.provinsi_id} value={p.provinsi_id}>{p.provinsi.nama_provinsi}</option>
               ))}
             </select>

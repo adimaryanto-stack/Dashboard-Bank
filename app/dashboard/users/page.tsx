@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { usersData } from '@/lib/data';
+import { getUsersData } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { User, UserRole } from '@/types';
 import { Search, Plus, Edit3, Trash2, UserCheck, UserX } from 'lucide-react';
 
@@ -16,7 +17,8 @@ const roleConfig: Record<UserRole, { label: string; color: string }> = {
 };
 
 export default function UsersPage() {
-  const [data, setData] = useState<User[]>(usersData);
+  const [data, setData] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -25,6 +27,22 @@ export default function UsersPage() {
   const [formUsername, setFormUsername] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('VIEWER');
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getUsersData();
+      setData(res);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search) return data;
@@ -52,40 +70,101 @@ export default function UsersPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formUsername || !formEmail) return;
 
     if (editUser) {
       setData(prev => prev.map(u => u.id === editUser.id ? { ...u, username: formUsername, email: formEmail, role: formRole } : u));
+      
+      const { error } = await supabase
+        .from('users')
+        .update({
+          username: formUsername,
+          email: formEmail,
+          role: formRole,
+        })
+        .eq('id', editUser.id);
+      
+      if (error) {
+        console.error(error);
+        alert('Gagal memperbarui user di database.');
+        fetchData();
+      }
     } else {
-      setData(prev => [...prev, {
-        id: String(Date.now()),
+      const newUser = {
         username: formUsername,
         email: formEmail,
         role: formRole,
         is_active: true,
-        created_at: new Date().toISOString(),
-      }]);
+      };
+      
+      const { data: dbUser, error } = await supabase
+        .from('users')
+        .insert([newUser])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error(error);
+        alert('Gagal menambahkan user baru ke database.');
+      } else {
+        setData(prev => [...prev, dbUser]);
+      }
     }
     setShowModal(false);
   };
 
-  const handleToggleActive = (id: string) => {
+  const handleToggleActive = async (id: string) => {
     const user = data.find(u => u.id === id);
-    if (user?.role === 'SUPER_ADMIN') return;
+    if (!user || user.role === 'SUPER_ADMIN') return;
+    
     setData(prev => prev.map(u => u.id === id ? { ...u, is_active: !u.is_active } : u));
+
+    const { error } = await supabase
+      .from('users')
+      .update({ is_active: !user.is_active })
+      .eq('id', id);
+    
+    if (error) {
+      console.error(error);
+      alert('Gagal memperbarui status user di database.');
+      fetchData();
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const user = data.find(u => u.id === id);
-    if (user?.role === 'SUPER_ADMIN') { alert('Super Admin tidak bisa dihapus!'); return; }
+    if (!user || user.role === 'SUPER_ADMIN') { alert('Super Admin tidak bisa dihapus!'); return; }
     if (!confirm('Hapus user ini?')) return;
-    setData(prev => prev.map(u => u.id === id ? { ...u, is_active: false } : u));
+    
+    setData(prev => prev.filter(u => u.id !== id));
+
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error(error);
+      alert('Gagal menghapus user dari database.');
+      fetchData();
+    }
   };
 
   const getInitials = (name: string) => {
     return name.split('.').map(s => s[0]?.toUpperCase()).join('').slice(0, 2);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Manajer Pengguna" subtitle="Kelola pengguna dan hak akses staf perbankan serta pengawas" />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

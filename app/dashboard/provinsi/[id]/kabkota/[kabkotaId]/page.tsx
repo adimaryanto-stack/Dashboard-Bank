@@ -5,10 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import { useAppStore } from '@/lib/store';
-import { alokasiProvinsiData, getKabkotaByProvinsi, getJenjangBreakdownByKabkota, getInstitusiByKabkota, tahunAnggaranData } from '@/lib/data';
+import { getInstitusiByKabkota } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah } from '@/lib/utils/formatters';
-import { AlokasiKabupatenKota, InstitusiPendidikan } from '@/types';
+import { AlokasiProvinsi, AlokasiKabupatenKota, InstitusiPendidikan } from '@/types';
 import { ArrowLeft, Banknote, Download, School, Sparkles } from 'lucide-react';
+import PctBadge from '@/components/ui/PctBadge';
 
 export default function KabkotaDetailPage() {
   const params = useParams();
@@ -17,70 +19,151 @@ export default function KabkotaDetailPage() {
   const kabkotaId = params.kabkotaId as string; // kabupaten_kota_id e.g. k-p-1-0
   const { activeTahun } = useAppStore();
 
-  // Find target province & kabkota data scaled dynamically
-  const provData = useMemo(() => {
-    const baseData = alokasiProvinsiData.find(p => p.provinsi_id === id);
-    if (!baseData) return null;
-    
-    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
-    const baseTahun = tahunAnggaranData[6];
-    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-    const seed = (activeTahun % 7) || 1;
-    const shift = 0.95 + (seed * 0.012);
+  const [provData, setProvData] = useState<AlokasiProvinsi | null>(null);
+  const [kabkotaData, setKabkotaData] = useState<AlokasiKabupatenKota | null>(null);
+  const [schoolList, setSchoolList] = useState<InstitusiPendidikan[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    const nominal = Math.round(baseData.nominal_alokasi * scale);
-    const realisasi = Math.min(nominal, Math.round(baseData.realisasi_total * scale * shift));
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const { data: yearRow } = await supabase
+        .from('tahun_anggaran')
+        .select('id')
+        .eq('tahun', activeTahun)
+        .single();
+      
+      if (!yearRow) {
+        setLoading(false);
+        return;
+      }
 
-    return {
-      ...baseData,
-      nominal_alokasi: nominal,
-      realisasi_total: realisasi,
-      selisih: nominal - realisasi,
-      persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
-    };
-  }, [id, activeTahun]);
+      const { data: provRow } = await supabase
+        .from('alokasi_provinsi')
+        .select('*, provinsi:provinsi(*)')
+        .eq('provinsi_id', id)
+        .eq('tahun_anggaran_id', yearRow.id)
+        .single();
 
-  const kabkotaData = useMemo(() => {
-    const baseData = getKabkotaByProvinsi(id).find(k => k.kabupaten_kota_id === kabkotaId);
-    if (!baseData) return null;
-    
-    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
-    const baseTahun = tahunAnggaranData[6];
-    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-    const seed = (activeTahun % 7) || 1;
-    const shift = 0.95 + (seed * 0.012);
+      if (!provRow) {
+        setProvData(null);
+        setLoading(false);
+        return;
+      }
 
-    const nominal = Math.round(baseData.nominal_alokasi * scale);
-    const realisasi = Math.min(nominal, Math.round(baseData.realisasi_total * scale * shift));
+      setProvData(provRow);
 
-    return {
-      ...baseData,
-      nominal_alokasi: nominal,
-      realisasi_total: realisasi,
-      selisih: nominal - realisasi,
-      persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
-    };
-  }, [id, kabkotaId, activeTahun]);
+      const { data: kabRow } = await supabase
+        .from('alokasi_kabupaten_kota')
+        .select('*, kabupaten_kota:kabupaten_kota(*)')
+        .eq('kabupaten_kota_id', kabkotaId)
+        .eq('alokasi_provinsi_id', provRow.id)
+        .single();
 
-  const scaledSchoolList = useMemo(() => {
-    if (!kabkotaData || !provData) return [];
-    return getInstitusiByKabkota(
-      kabkotaId,
-      kabkotaData.kabupaten_kota.nama_kabupaten_kota,
-      provData.provinsi.nama_provinsi,
-      kabkotaData.nominal_alokasi
-    );
-  }, [kabkotaId, kabkotaData, provData]);
+      if (!kabRow) {
+        setKabkotaData(null);
+        setLoading(false);
+        return;
+      }
 
-  // States
-  const [schoolList, setSchoolList] = useState<InstitusiPendidikan[]>(scaledSchoolList);
+      setKabkotaData(kabRow);
+
+      const schools = await getInstitusiByKabkota(
+        kabkotaId,
+        kabRow.kabupaten_kota.nama_kabupaten_kota,
+        provRow.provinsi.nama_provinsi,
+        kabRow.nominal_alokasi
+      );
+      setSchoolList(schools);
+
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setSchoolList(scaledSchoolList);
-  }, [scaledSchoolList]);
+    fetchData();
+  }, [id, kabkotaId, activeTahun]);
   
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal_alokasi' | 'realisasi_total' } | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  // Calculate dynamic totals based on individual school edits
+  const totals = useMemo(() => {
+    const nominal = schoolList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
+    const realisasi = schoolList.reduce((sum, item) => sum + item.realisasi_total, 0);
+    const selisih = nominal - realisasi;
+    const persentase = nominal > 0 ? (realisasi / nominal) * 100 : 0;
+    return { nominal, realisasi, selisih, persentase };
+  }, [schoolList]);
+
+  // Jenjang Breakdown calculation (linked to dynamic district school list total budget)
+  const jenjangBreakdown = useMemo(() => {
+    const counts: Record<string, { count: number; nominal: number }> = {
+      'UNIVERSITAS': { count: 0, nominal: 0 },
+      'SMA': { count: 0, nominal: 0 },
+      'SMP': { count: 0, nominal: 0 },
+      'SD': { count: 0, nominal: 0 },
+      'PAUD': { count: 0, nominal: 0 },
+    };
+
+    schoolList.forEach(s => {
+      const key = s.jenjang.toUpperCase();
+      if (counts[key]) {
+        counts[key].count++;
+        counts[key].nominal += Number(s.nominal_alokasi);
+      }
+    });
+
+    const jenjangs = [
+      { label: 'Universitas (Strata 1)', key: 'UNIVERSITAS', porsi: 10 },
+      { label: 'Sekolah Menengah Atas (SMA)', key: 'SMA', porsi: 20 },
+      { label: 'Sekolah Menengah Kejuruan (SMK)', key: 'SMA', porsi: 15 },
+      { label: 'Sekolah Menengah Pertama (SMP)', key: 'SMP', porsi: 20 },
+      { label: 'Sekolah Dasar (SD)', key: 'SD', porsi: 30 },
+      { label: 'Pendidikan Anak Usia Dini (PAUD)', key: 'PAUD', porsi: 5 },
+    ];
+
+    const nominalAlokasi = totals.nominal;
+
+    return jenjangs.map((j, i) => {
+      let nominal = counts[j.key].nominal;
+      let count = counts[j.key].count;
+      
+      if (j.label.includes('SMK')) {
+        count = schoolList.filter(s => s.jenjang === 'SMA' && s.nama_institusi.includes('SMK')).length;
+        nominal = schoolList.filter(s => s.jenjang === 'SMA' && s.nama_institusi.includes('SMK')).reduce((sum, s) => sum + s.nominal_alokasi, 0);
+      } else if (j.label.includes('Sekolah Menengah Atas')) {
+        count = schoolList.filter(s => s.jenjang === 'SMA' && !s.nama_institusi.includes('SMK')).length;
+        nominal = schoolList.filter(s => s.jenjang === 'SMA' && !s.nama_institusi.includes('SMK')).reduce((sum, s) => sum + s.nominal_alokasi, 0);
+      }
+
+      const porsi = nominalAlokasi > 0 ? (nominal / nominalAlokasi) * 100 : j.porsi;
+      return {
+        nomor: i + 1,
+        jenjang: j.label,
+        jumlah_sekolah: count,
+        nominal_keseluruhan: nominal,
+        porsi_anggaran: Math.round(porsi * 10) / 10,
+      };
+    });
+  }, [schoolList, totals.nominal]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header
+          title="Detail Area Kabupaten/Kota"
+          subtitle="Memuat data status pencairan rekening sekolah..."
+        />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!provData || !kabkotaData) {
     return (
@@ -97,31 +180,18 @@ export default function KabkotaDetailPage() {
     );
   }
 
-  // Calculate dynamic totals based on individual school edits
-  const totals = useMemo(() => {
-    const nominal = schoolList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
-    const realisasi = schoolList.reduce((sum, item) => sum + item.realisasi_total, 0);
-    const selisih = nominal - realisasi;
-    const persentase = nominal > 0 ? (realisasi / nominal) * 100 : 0;
-    return { nominal, realisasi, selisih, persentase };
-  }, [schoolList]);
-
-  // Jenjang Breakdown calculation (linked to dynamic district school list total budget)
-  const jenjangBreakdown = useMemo(() => {
-    return getJenjangBreakdownByKabkota(kabkotaId, totals.nominal);
-  }, [kabkotaId, totals.nominal]);
-
   // Inline editing functions
   const startEdit = (rowId: string, field: 'nominal_alokasi' | 'realisasi_total', currentValue: number) => {
     setEditingCell({ id: rowId, field });
     setEditValue(String(currentValue));
   };
 
-  const commitEdit = () => {
-    if (!editingCell) return;
+  const commitEdit = async () => {
+    if (!editingCell || !kabkotaData || !provData) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setSchoolList(prev => prev.map(item => {
+      // 1. Update local state
+      const updatedSchoolList = schoolList.map(item => {
         if (item.id !== editingCell.id) return item;
         const nominal = editingCell.field === 'nominal_alokasi' ? parsed : item.nominal_alokasi;
         const realisasi = editingCell.field === 'realisasi_total' ? parsed : item.realisasi_total;
@@ -132,7 +202,83 @@ export default function KabkotaDetailPage() {
           selisih: nominal - realisasi,
           persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
         };
-      }));
+      });
+      setSchoolList(updatedSchoolList);
+
+      // 2. Update school in DB if it's not a mock school
+      if (!editingCell.id.startsWith('inst-')) {
+        const { error: schoolError } = await supabase
+          .from('institusi_pendidikan')
+          .update({ [editingCell.field]: parsed })
+          .eq('id', editingCell.id);
+
+        if (schoolError) {
+          console.error(schoolError);
+          alert('Gagal menyimpan perubahan sekolah ke database.');
+          fetchData();
+          setEditingCell(null);
+          return;
+        }
+      }
+
+      // 3. Recalculate kabkota aggregates
+      const newKabNominal = updatedSchoolList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
+      const newKabRealisasi = updatedSchoolList.reduce((sum, item) => sum + item.realisasi_total, 0);
+
+      // 4. Update kabkota aggregate in DB
+      const { error: kabError } = await supabase
+        .from('alokasi_kabupaten_kota')
+        .update({
+          nominal_alokasi: newKabNominal,
+          realisasi_total: newKabRealisasi,
+        })
+        .eq('id', kabkotaData.id);
+
+      if (kabError) {
+        console.error(kabError);
+        alert('Gagal memperbarui total kabupaten/kota di database.');
+        fetchData();
+        setEditingCell(null);
+        return;
+      }
+
+      // 5. Update province aggregate in DB
+      const { data: kabList, error: fetchKabError } = await supabase
+        .from('alokasi_kabupaten_kota')
+        .select('id, nominal_alokasi, realisasi_total')
+        .eq('alokasi_provinsi_id', provData.id);
+
+      if (fetchKabError || !kabList) {
+        console.error(fetchKabError);
+        alert('Gagal mengambil data kabupaten/kota untuk pembaharuan provinsi.');
+        fetchData();
+        setEditingCell(null);
+        return;
+      }
+
+      const newProvNominal = kabList.reduce((sum, item) => {
+        if (item.id === kabkotaData.id) return sum + newKabNominal;
+        return sum + Number(item.nominal_alokasi);
+      }, 0);
+
+      const newProvRealisasi = kabList.reduce((sum, item) => {
+        if (item.id === kabkotaData.id) return sum + newKabRealisasi;
+        return sum + Number(item.realisasi_total);
+      }, 0);
+
+      const { error: provError } = await supabase
+        .from('alokasi_provinsi')
+        .update({
+          nominal_alokasi: newProvNominal,
+          realisasi_total: newProvRealisasi,
+        })
+        .eq('id', provData.id);
+
+      if (provError) {
+        console.error(provError);
+        alert('Gagal memperbarui total provinsi.');
+        fetchData();
+      }
     }
     setEditingCell(null);
   };
@@ -198,6 +344,7 @@ export default function KabkotaDetailPage() {
             <Link href="/dashboard/provinsi" className="hover:text-accent hover:underline">Penyaluran Wilayah</Link>
             <span>➔</span>
             <Link href={`/dashboard/provinsi/${id}`} className="hover:text-accent hover:underline">{provData.provinsi.nama_provinsi}</Link>
+
             <span>➔</span>
             <span className="font-semibold text-slate-700">{kabkotaData.kabupaten_kota.nama_kabupaten_kota}</span>
           </div>

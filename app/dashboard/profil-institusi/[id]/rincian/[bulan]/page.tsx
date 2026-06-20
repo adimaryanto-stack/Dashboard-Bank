@@ -6,8 +6,9 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import { useAppStore } from '@/lib/store';
 import { getRincianPengeluaranBulanan } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah } from '@/lib/utils/formatters';
-import { RincianPengeluaranItem } from '@/types';
+import { RincianPengeluaranItem, RincianPengeluaranBulanan } from '@/types';
 import { ArrowLeft, Download, Plus } from 'lucide-react';
 
 export default function RincianPengeluaranPage() {
@@ -17,42 +18,62 @@ export default function RincianPengeluaranPage() {
   const nomorBulan = parseInt(params.bulan as string, 10);
   const { activeTahun } = useAppStore();
 
-  const rincianData = useMemo(
-    () => getRincianPengeluaranBulanan(institusiId, nomorBulan, activeTahun),
-    [institusiId, nomorBulan, activeTahun]
-  );
+  const [rincianData, setRincianData] = useState<RincianPengeluaranBulanan | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Editable state
   const [items, setItems] = useState<RincianPengeluaranItem[]>([]);
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'harga_satuan' | 'qty' } | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  useEffect(() => {
-    if (rincianData) {
-      setItems(rincianData.items);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getRincianPengeluaranBulanan(institusiId, nomorBulan, activeTahun);
+      setRincianData(res);
+      if (res) {
+        setItems(res.items);
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
     }
-  }, [rincianData]);
+  };
 
-  if (!rincianData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Data tidak ditemukan</h2>
-          <p className="text-text-muted mb-4">Sekolah ID: {institusiId}, Bulan: {nomorBulan}</p>
-          <button onClick={() => router.back()} className="btn btn-primary">
-            <ArrowLeft size={16} />
-            Kembali
-          </button>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchData();
+  }, [institusiId, nomorBulan, activeTahun]);
 
   // ===== Calculated totals =====
   const subTotal = items.reduce((s, item) => s + item.jumlah, 0);
-  const pajakPersen = rincianData.pajak_persen;
+  const pajakPersen = rincianData?.pajak_persen || 11;
   const pajakNominal = Math.round(subTotal * pajakPersen / 100);
   const total = subTotal + pajakNominal;
+
+  const updateMonthlySummary = async (newItemsList: RincianPengeluaranItem[]) => {
+    try {
+      const newSubTotal = newItemsList.reduce((s, item) => s + item.jumlah, 0);
+      const newPajak = Math.round(newSubTotal * pajakPersen / 100);
+      const newTotal = newSubTotal + newPajak;
+
+      const { error } = await supabase
+        .from('pengeluaran_bulanan_institusi')
+        .update({
+          nominal_pengeluaran: newTotal,
+          sub_total: newTotal,
+        })
+        .eq('institusi_id', institusiId)
+        .eq('nomor', nomorBulan);
+
+      if (error) {
+        console.error(error);
+        alert('Gagal menyinkronkan total bulanan ke database.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // ===== Editing =====
   const startEdit = (id: string, field: 'harga_satuan' | 'qty', value: number) => {
@@ -60,16 +81,40 @@ export default function RincianPengeluaranPage() {
     setEditValue(String(value));
   };
 
-  const commitEdit = () => {
+  const commitEdit = async () => {
     if (!editingCell) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setItems(prev => prev.map(item => {
+      const updatedItems = items.map(item => {
         if (item.id !== editingCell.id) return item;
         const harga = editingCell.field === 'harga_satuan' ? parsed : item.harga_satuan;
         const qty = editingCell.field === 'qty' ? parsed : item.qty;
         return { ...item, harga_satuan: harga, qty, jumlah: harga * qty };
-      }));
+      });
+      setItems(updatedItems);
+
+      const targetItem = items.find(item => item.id === editingCell.id);
+      if (targetItem) {
+        const harga = editingCell.field === 'harga_satuan' ? parsed : targetItem.harga_satuan;
+        const qty = editingCell.field === 'qty' ? parsed : targetItem.qty;
+        const jumlah = harga * qty;
+
+        const { error } = await supabase
+          .from('rincian_pengeluaran_item')
+          .update({
+            [editingCell.field]: parsed,
+            jumlah
+          })
+          .eq('id', editingCell.id);
+
+        if (error) {
+          console.error(error);
+          alert('Gagal menyimpan perubahan item.');
+          fetchData();
+        } else {
+          await updateMonthlySummary(updatedItems);
+        }
+      }
     }
     setEditingCell(null);
   };
@@ -105,17 +150,67 @@ export default function RincianPengeluaranPage() {
   };
 
   // ===== Add new item =====
-  const addItem = () => {
-    const newId = `ri-new-${Date.now()}`;
-    setItems(prev => [...prev, {
-      id: newId,
-      nomor: prev.length + 1,
-      nama_produk_jasa: 'Item Baru',
-      harga_satuan: 0,
-      qty: 1,
-      jumlah: 0,
-    }]);
+  const addItem = async () => {
+    if (!rincianData) return;
+    try {
+      const nextNomor = items.length + 1;
+      const newItem = {
+        institusi_id: institusiId,
+        nomor_bulan: nomorBulan,
+        nomor: nextNomor,
+        nama_produk_jasa: 'Item Baru',
+        harga_satuan: 0,
+        qty: 1,
+        jumlah: 0,
+      };
+
+      const { data, error } = await supabase
+        .from('rincian_pengeluaran_item')
+        .insert([newItem])
+        .select()
+        .single();
+
+      if (error) {
+        console.error(error);
+        alert('Gagal menambahkan item baru ke database.');
+        return;
+      }
+
+      setItems(prev => [...prev, data]);
+      await updateMonthlySummary([...items, data]);
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header
+          title="Detail Beban Bulanan"
+          subtitle="Memuat rincian pengeluaran bulanan sekolah..."
+        />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!rincianData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-text-primary mb-2">Data tidak ditemukan</h2>
+          <p className="text-text-muted mb-4">Sekolah ID: {institusiId}, Bulan: {nomorBulan}</p>
+          <button onClick={() => router.back()} className="btn btn-primary">
+            <ArrowLeft size={16} />
+            Kembali
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

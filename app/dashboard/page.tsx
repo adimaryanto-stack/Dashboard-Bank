@@ -5,30 +5,63 @@ import Header from '@/components/layout/Header';
 import MetricCard from '@/components/ui/MetricCard';
 import PctBadge from '@/components/ui/PctBadge';
 import { getDashboardSummary } from '@/lib/data';
+import { DashboardSummary } from '@/types';
 import { fmtTriliun, fmtPct } from '@/lib/utils/formatters';
 import { Wallet, TrendingUp, PieChart, GraduationCap } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Legend, Area, AreaChart
 } from 'recharts';
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
 export default function DashboardPage() {
   const { activeTahun } = useAppStore();
-  const summary = useMemo(() => getDashboardSummary(activeTahun), [activeTahun]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const barData = summary.per_jenjang.map(j => ({
-    jenjang: j.jenjang === 'UNIVERSITAS' ? 'Univ' : j.jenjang,
-    Nominal: j.nominal / 1_000_000_000_000,
-    Realisasi: j.realisasi / 1_000_000_000_000,
-  }));
+  useEffect(() => {
+    setLoading(true);
+    getDashboardSummary(activeTahun)
+      .then(res => {
+        setSummary(res);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [activeTahun]);
 
-  const trendData = summary.tren_tahunan.map(t => ({
-    tahun: String(t.tahun),
-    Nominal: t.nominal / 1_000_000_000_000,
-    Realisasi: t.realisasi / 1_000_000_000_000,
-  }));
+  const barData = useMemo(() => {
+    if (!summary) return [];
+    return summary.per_jenjang.map(j => ({
+      jenjang: j.jenjang === 'UNIVERSITAS' ? 'Univ' : j.jenjang,
+      Nominal: j.nominal / 1_000_000_000_000,
+      Realisasi: j.realisasi / 1_000_000_000_000,
+    }));
+  }, [summary]);
+
+  const trendData = useMemo(() => {
+    if (!summary) return [];
+    return summary.tren_tahunan.map(t => ({
+      tahun: String(t.tahun),
+      Nominal: t.nominal / 1_000_000_000_000,
+      Realisasi: t.realisasi / 1_000_000_000_000,
+    }));
+  }, [summary]);
+
+  if (loading || !summary) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Dashboard Bank" subtitle="Portal Penyaluran Anggaran Pendidikan Nasional" />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen">

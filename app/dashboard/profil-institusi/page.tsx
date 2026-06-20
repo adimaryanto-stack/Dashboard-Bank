@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
-import { getAllInstitusi, alokasiProvinsiData } from '@/lib/data';
+import { getAllInstitusi, getAlokasiProvinsi } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
-import { Jenjang } from '@/types';
+import { Jenjang, AlokasiProvinsi, InstitusiPendidikan } from '@/types';
 import { Search, ExternalLink } from 'lucide-react';
+import { useAppStore } from '@/lib/store';
 
 const jenjangOptions: { value: '' | Jenjang; label: string }[] = [
   { value: '', label: 'Semua Kategori' },
@@ -19,10 +20,32 @@ const jenjangOptions: { value: '' | Jenjang; label: string }[] = [
 ];
 
 export default function ProfilInstitusiPage() {
-  const allInstitusi = useMemo(() => getAllInstitusi(), []);
+  const { activeTahun } = useAppStore();
+  const [allInstitusi, setAllInstitusi] = useState<InstitusiPendidikan[]>([]);
+  const [provinsiList, setProvinsiList] = useState<AlokasiProvinsi[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedJenjang, setSelectedJenjang] = useState<'' | Jenjang>('');
   const [selectedProvinsiId, setSelectedProvinsiId] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [schools, provs] = await Promise.all([
+          getAllInstitusi(),
+          getAlokasiProvinsi(activeTahun),
+        ]);
+        setAllInstitusi(schools);
+        setProvinsiList(provs);
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [activeTahun]);
 
   const filtered = useMemo(() => {
     let result = allInstitusi;
@@ -30,7 +53,7 @@ export default function ProfilInstitusiPage() {
       result = result.filter(inst => inst.jenjang === selectedJenjang);
     }
     if (selectedProvinsiId) {
-      const prov = alokasiProvinsiData.find(p => p.provinsi_id === selectedProvinsiId);
+      const prov = provinsiList.find(p => p.provinsi_id === selectedProvinsiId);
       if (prov) {
         result = result.filter(inst => inst.provinsi_nama === prov.provinsi.nama_provinsi);
       }
@@ -41,7 +64,21 @@ export default function ProfilInstitusiPage() {
       );
     }
     return result;
-  }, [allInstitusi, search, selectedJenjang, selectedProvinsiId]);
+  }, [allInstitusi, search, selectedJenjang, selectedProvinsiId, provinsiList]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header
+          title="Rekening Sekolah"
+          subtitle="Klik nama sekolah untuk melihat detail profil keuangan & mutasi rekening"
+        />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -73,7 +110,7 @@ export default function ProfilInstitusiPage() {
               className="select-dropdown"
             >
               <option value="">Semua Provinsi</option>
-              {alokasiProvinsiData.map(p => (
+              {provinsiList.map(p => (
                 <option key={p.provinsi_id} value={p.provinsi_id}>{p.provinsi.nama_provinsi}</option>
               ))}
             </select>

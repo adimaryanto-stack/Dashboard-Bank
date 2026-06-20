@@ -40,8 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# InsForge & AI agent skills
-.insforge
+# AI agent skills
 .agent
 .agents
 .augment

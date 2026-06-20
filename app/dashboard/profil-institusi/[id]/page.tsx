@@ -6,8 +6,9 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import { useAppStore } from '@/lib/store';
 import { getProfilInstitusi } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah } from '@/lib/utils/formatters';
-import { SumberDanaInstitusi, PengeluaranBulananInstitusi } from '@/types';
+import { SumberDanaInstitusi, PengeluaranBulananInstitusi, ProfilInstitusi } from '@/types';
 import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown, Edit3 } from 'lucide-react';
 
 export default function ProfilInstitusiDetailPage() {
@@ -16,7 +17,8 @@ export default function ProfilInstitusiDetailPage() {
   const id = params.id as string;
   const { activeTahun } = useAppStore();
 
-  const profilData = useMemo(() => getProfilInstitusi(id, activeTahun), [id, activeTahun]);
+  const [profilData, setProfilData] = useState<ProfilInstitusi | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Editable state
   const [sumberDana, setSumberDana] = useState<SumberDanaInstitusi[]>([]);
@@ -24,13 +26,26 @@ export default function ProfilInstitusiDetailPage() {
   const [nomorRekening, setNomorRekening] = useState('');
   const [editingRekening, setEditingRekening] = useState(false);
 
-  useEffect(() => {
-    if (profilData) {
-      setSumberDana(profilData.sumber_dana);
-      setPengeluaran(profilData.pengeluaran_bulanan);
-      setNomorRekening(profilData.institusi.nomor_rekening);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getProfilInstitusi(id, activeTahun);
+      setProfilData(res);
+      if (res) {
+        setSumberDana(res.sumber_dana);
+        setPengeluaran(res.pengeluaran_bulanan);
+        setNomorRekening(res.institusi.nomor_rekening || '');
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
     }
-  }, [profilData]);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [id, activeTahun]);
 
   // Sumber Dana editing
   const [editingSD, setEditingSD] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
@@ -39,6 +54,33 @@ export default function ProfilInstitusiDetailPage() {
   // Pengeluaran editing
   const [editingPB, setEditingPB] = useState<{ id: string; field: 'nominal_pengeluaran' | 'qty' } | null>(null);
   const [editPBValue, setEditPBValue] = useState('');
+
+  const commitRekening = async () => {
+    setEditingRekening(false);
+    const { error } = await supabase
+      .from('institusi_pendidikan')
+      .update({ nomor_rekening: nomorRekening })
+      .eq('id', id);
+    if (error) {
+      console.error(error);
+      alert('Gagal menyimpan nomor rekening ke database.');
+      fetchData();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header
+          title="Detail Rekening Sekolah"
+          subtitle="Memuat data profil keuangan & mutasi rekening..."
+        />
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!profilData) {
     return (
@@ -70,7 +112,7 @@ export default function ProfilInstitusiDetailPage() {
     setEditSDValue(String(value));
   };
 
-  const commitEditSD = () => {
+  const commitEditSD = async () => {
     if (!editingSD) return;
     const parsed = Number(editSDValue);
     if (!isNaN(parsed) && parsed >= 0) {
@@ -80,6 +122,27 @@ export default function ProfilInstitusiDetailPage() {
         const realisasi = editingSD.field === 'realisasi' ? parsed : item.realisasi;
         return { ...item, nominal, realisasi, saldo_di_bank: nominal - realisasi };
       }));
+
+      const targetItem = sumberDana.find(s => s.id === editingSD.id);
+      if (targetItem) {
+        const nominal = editingSD.field === 'nominal' ? parsed : targetItem.nominal;
+        const realisasi = editingSD.field === 'realisasi' ? parsed : targetItem.realisasi;
+        const saldo_di_bank = nominal - realisasi;
+
+        const { error } = await supabase
+          .from('sumber_dana_institusi')
+          .update({
+            [editingSD.field]: parsed,
+            saldo_di_bank
+          })
+          .eq('id', editingSD.id);
+        
+        if (error) {
+          console.error(error);
+          alert('Gagal menyimpan perubahan sumber dana ke database.');
+          fetchData();
+        }
+      }
     }
     setEditingSD(null);
   };
@@ -90,7 +153,7 @@ export default function ProfilInstitusiDetailPage() {
     setEditPBValue(String(value));
   };
 
-  const commitEditPB = () => {
+  const commitEditPB = async () => {
     if (!editingPB) return;
     const parsed = Number(editPBValue);
     if (!isNaN(parsed) && parsed >= 0) {
@@ -100,6 +163,27 @@ export default function ProfilInstitusiDetailPage() {
         const qty = editingPB.field === 'qty' ? parsed : item.qty;
         return { ...item, nominal_pengeluaran: nom, qty, sub_total: nom * qty };
       }));
+
+      const targetItem = pengeluaran.find(p => p.id === editingPB.id);
+      if (targetItem) {
+        const nom = editingPB.field === 'nominal_pengeluaran' ? parsed : targetItem.nominal_pengeluaran;
+        const qty = editingPB.field === 'qty' ? parsed : targetItem.qty;
+        const sub_total = nom * qty;
+
+        const { error } = await supabase
+          .from('pengeluaran_bulanan_institusi')
+          .update({
+            [editingPB.field]: parsed,
+            sub_total
+          })
+          .eq('id', editingPB.id);
+        
+        if (error) {
+          console.error(error);
+          alert('Gagal menyimpan perubahan pengeluaran ke database.');
+          fetchData();
+        }
+      }
     }
     setEditingPB(null);
   };
@@ -203,8 +287,8 @@ export default function ProfilInstitusiDetailPage() {
                   type="text"
                   value={nomorRekening}
                   onChange={(e) => setNomorRekening(e.target.value)}
-                  onBlur={() => setEditingRekening(false)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setEditingRekening(false); }}
+                  onBlur={commitRekening}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitRekening(); }}
                   className="bg-white/70 border border-accent rounded px-2 py-0.5 text-sm font-mono outline-none"
                 />
               ) : (

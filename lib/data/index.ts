@@ -1,7 +1,4 @@
-// ============================================
-// Mock Data — Sistem Transparansi Anggaran Pendidikan
-// All data is deterministic (no Math.random) to avoid hydration mismatches
-// ============================================
+import { supabase } from '../supabase';
 import {
   TahunAnggaran,
   AlokasiProvinsi,
@@ -18,7 +15,9 @@ import {
   JenjangBreakdownProvinsi,
 } from '@/types';
 
-// Deterministic pseudo-random based on seed
+// ============================================
+// Fallback Helper Functions (Deterministic Seeded Values)
+// ============================================
 function seededValues(count: number, min: number, max: number, seed: number): number[] {
   const result: number[] = [];
   let s = seed;
@@ -29,23 +28,6 @@ function seededValues(count: number, min: number, max: number, seed: number): nu
   return result;
 }
 
-// === TAHUN ANGGARAN ===
-export let tahunAnggaranData: TahunAnggaran[] = [
-  { id: '1', tahun: 2020, total_anggaran: 473_700_000_000_000, status: 'CLOSED', created_at: '2020-01-01' },
-  { id: '2', tahun: 2021, total_anggaran: 472_600_000_000_000, status: 'CLOSED', created_at: '2021-01-01' },
-  { id: '3', tahun: 2022, total_anggaran: 472_600_000_000_000, status: 'CLOSED', created_at: '2022-01-01' },
-  { id: '4', tahun: 2023, total_anggaran: 612_200_000_000_000, status: 'CLOSED', created_at: '2023-01-01' },
-  { id: '5', tahun: 2024, total_anggaran: 665_000_000_000_000, status: 'CLOSED', created_at: '2024-01-01' },
-  { id: '6', tahun: 2025, total_anggaran: 722_600_000_000_000, status: 'CLOSED', created_at: '2025-01-01' },
-  { id: '7', tahun: 2026, total_anggaran: 769_100_000_000_000, status: 'ACTIVE', created_at: '2026-01-01' },
-  { id: '8', tahun: 2027, total_anggaran: 0, status: 'DRAFT', created_at: '2026-06-01' },
-];
-
-export function updateTahunAnggaranData(newData: TahunAnggaran[]) {
-  tahunAnggaranData = newData;
-}
-
-// === 38 PROVINSI ===
 const provinsiNames = [
   'Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Jambi',
   'Sumatera Selatan', 'Bengkulu', 'Lampung', 'Kep. Bangka Belitung',
@@ -80,45 +62,6 @@ const originalTotalReal = nominalDistribution.reduce((sum, val, idx) => {
 }, 0);
 const targetTotalReal = Math.round(originalTotalReal * (targetTotal2026 / originalTotal2026));
 
-let distributedProvNominal = 0;
-let distributedProvRealisasi = 0;
-
-export const alokasiProvinsiData: AlokasiProvinsi[] = provinsiNames.map((nama, i) => {
-  const isLast = i === provinsiNames.length - 1;
-  const baseNom = nominalDistribution[i] * 1_000_000_000_000;
-  
-  let nominal = 0;
-  if (isLast) {
-    nominal = targetTotal2026 - distributedProvNominal;
-  } else {
-    nominal = Math.round(baseNom * (targetTotal2026 / originalTotal2026));
-    distributedProvNominal += nominal;
-  }
-
-  const baseReal = Math.round(baseNom * (realisasiPct[i] / 100));
-
-  let realisasi = 0;
-  if (isLast) {
-    realisasi = targetTotalReal - distributedProvRealisasi;
-  } else {
-    realisasi = Math.round(baseReal * (targetTotal2026 / originalTotal2026));
-    distributedProvRealisasi += realisasi;
-  }
-
-  return {
-    id: `prov-${i + 1}`,
-    tahun_anggaran_id: '7',
-    provinsi_id: `p-${i + 1}`,
-    provinsi: { id: `p-${i + 1}`, kode_provinsi: `${11 + i}`, nama_provinsi: nama },
-    nominal_alokasi: nominal,
-    realisasi_total: realisasi,
-    selisih: nominal - realisasi,
-    persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
-    updated_at: '2026-04-15',
-  };
-});
-
-// === KABUPATEN/KOTA ===
 const kabkotaJabar = [
   { nama: 'Kabupaten Bogor', tipe: 'KABUPATEN' as const },
   { nama: 'Kabupaten Sukabumi', tipe: 'KABUPATEN' as const },
@@ -149,7 +92,6 @@ const kabkotaJabar = [
   { nama: 'Kota Banjar', tipe: 'KOTA' as const },
 ];
 
-// Real kabupaten/kota names per province
 type KT = { nama: string; tipe: 'KABUPATEN' | 'KOTA' };
 const K = (n: string): KT => ({ nama: `Kab. ${n}`, tipe: 'KABUPATEN' });
 const C = (n: string): KT => ({ nama: `Kota ${n}`, tipe: 'KOTA' });
@@ -166,7 +108,7 @@ const kabkotaPerProvinsi: KT[][] = [
   /* Babel */       [K('Bangka'),K('Belitung'),K('Bangka Barat'),K('Bangka Selatan'),C('Pangkalpinang')],
   /* Kepri */       [K('Bintan'),K('Karimun'),K('Natuna'),K('Lingga'),C('Batam'),C('Tanjungpinang')],
   /* DKI */         [C('Jakarta Pusat'),C('Jakarta Utara'),C('Jakarta Barat'),C('Jakarta Selatan'),C('Jakarta Timur'),K('Kep. Seribu')],
-  /* Jabar - already defined separately */ kabkotaJabar,
+  /* Jabar */       kabkotaJabar,
   /* Jateng */      [K('Cilacap'),K('Banyumas'),K('Kebumen'),K('Purworejo'),K('Magelang'),K('Semarang'),K('Demak'),K('Kudus'),C('Semarang'),C('Surakarta'),C('Magelang'),C('Salatiga')],
   /* DIY */         [K('Sleman'),K('Bantul'),K('Gunungkidul'),K('Kulon Progo'),C('Yogyakarta')],
   /* Jatim */       [K('Sidoarjo'),K('Gresik'),K('Malang'),K('Jember'),K('Banyuwangi'),K('Kediri'),K('Mojokerto'),K('Lamongan'),K('Pasuruan'),C('Surabaya'),C('Malang'),C('Kediri'),C('Batu')],
@@ -195,444 +137,39 @@ const kabkotaPerProvinsi: KT[][] = [
   /* Papua BD */    [K('Teluk Bintuni'),K('Sorong Selatan'),K('Maybrat'),K('Tambrauw'),C('Sorong')],
 ];
 
-// Deterministic percentage values for kabkota
 const kabkotaPctSeeds = seededValues(600, 42, 92, 42);
-
-export function getKabkotaByProvinsi(provinsiId: string): AlokasiKabupatenKota[] {
-  const provIdx = parseInt(provinsiId.replace('p-', ''), 10) - 1;
-  const templates = kabkotaPerProvinsi[provIdx] || [];
-  const provData = alokasiProvinsiData.find(p => p.provinsi_id === provinsiId);
-  if (!provData) return [];
-  const totalNominal = provData.nominal_alokasi;
-  const totalRealisasi = provData.realisasi_total;
-
-  // Deterministic share values
-  const shareVals = seededValues(templates.length, 0.7, 1.3, provIdx * 100 + 7);
-  const totalShareVal = shareVals.reduce((a, b) => a + b, 0);
-
-  let distributedNominal = 0;
-  let distributedRealisasi = 0;
-
-  return templates.map((kab, i) => {
-    const isLast = i === templates.length - 1;
-    const share = shareVals[i] / totalShareVal;
-    
-    let nominal = 0;
-    if (isLast) {
-      nominal = totalNominal - distributedNominal;
-    } else {
-      nominal = Math.round(totalNominal * share);
-      distributedNominal += nominal;
-    }
-    
-    const pct = kabkotaPctSeeds[(provIdx * 15 + i) % kabkotaPctSeeds.length];
-    
-    let realisasi = 0;
-    if (isLast) {
-      realisasi = totalRealisasi - distributedRealisasi;
-    } else {
-      realisasi = Math.round(nominal * pct / 100);
-      distributedRealisasi += realisasi;
-    }
-
-    return {
-      id: `kab-${provinsiId}-${i}`,
-      alokasi_provinsi_id: provData.id,
-      kabupaten_kota_id: `k-${provinsiId}-${i}`,
-      kabupaten_kota: {
-        id: `k-${provinsiId}-${i}`,
-        provinsi_id: provinsiId,
-        kode_kabupaten_kota: `${provinsiId.replace('p-', '')}.${String(i + 1).padStart(2, '0')}`,
-        nama_kabupaten_kota: kab.nama,
-        tipe: kab.tipe,
-      },
-      provinsi_nama: provData.provinsi.nama_provinsi,
-      nominal_alokasi: nominal,
-      realisasi_total: realisasi,
-      selisih: nominal - realisasi,
-      persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
-      updated_at: '2026-04-15',
-    };
-  });
-}
-
-export function getAllKabkota(): AlokasiKabupatenKota[] {
-  return alokasiProvinsiData.flatMap(p => getKabkotaByProvinsi(p.provinsi_id));
-}
-
-// === INSTITUSI PENDIDIKAN ===
-const universitas = [
-  'Universitas Indonesia', 'Institut Teknologi Bandung', 'Universitas Gadjah Mada',
-  'Institut Pertanian Bogor', 'Universitas Airlangga', 'Universitas Diponegoro',
-  'Universitas Padjadjaran', 'Universitas Brawijaya', 'Universitas Hasanuddin',
-  'Universitas Sumatera Utara', 'Universitas Andalas', 'Universitas Riau',
-  'Universitas Lampung', 'Universitas Sriwijaya', 'Universitas Jember',
-  'Universitas Sebelas Maret', 'Universitas Negeri Yogyakarta', 'Universitas Negeri Malang',
-  'Universitas Negeri Semarang', 'Universitas Negeri Surabaya',
-];
-
-const smaNames = [
-  'SMAN 1 Jakarta', 'SMAN 3 Bandung', 'SMAN 1 Yogyakarta', 'SMAN 5 Surabaya',
-  'SMAN 1 Denpasar', 'SMAN 1 Semarang', 'SMAN 2 Jakarta', 'SMAN 1 Malang',
-  'SMAN 1 Medan', 'SMAN 1 Makassar', 'SMAN 8 Jakarta', 'SMAN 1 Bogor',
-  'SMAN 1 Padang', 'SMAN 1 Palembang', 'SMAN 1 Bekasi',
-];
-
-const smpNames = [
-  'SMPN 1 Jakarta', 'SMPN 1 Bandung', 'SMPN 1 Surabaya', 'SMPN 1 Yogyakarta',
-  'SMPN 1 Semarang', 'SMPN 1 Malang', 'SMPN 1 Denpasar', 'SMPN 1 Medan',
-  'SMPN 2 Jakarta', 'SMPN 1 Makassar', 'SMPN 1 Bogor', 'SMPN 1 Bekasi',
-  'SMPN 1 Depok', 'SMPN 1 Tangerang', 'SMPN 1 Palembang',
-];
-
-const sdNames = [
-  'SDN 01 Menteng', 'SDN 02 Bendungan Hilir', 'SDN 01 Cikini', 'SDN 01 Bandung',
-  'SDN 01 Surabaya', 'SDN 01 Yogyakarta', 'SDN 01 Semarang', 'SDN 01 Malang',
-  'SDN 01 Denpasar', 'SDN 01 Medan', 'SDN 01 Makassar', 'SDN 01 Padang',
-  'SDN 01 Palembang', 'SDN 01 Bogor', 'SDN 01 Bekasi',
-];
-
-const paudNames = [
-  'PAUD Al-Ikhlas Jakarta', 'PAUD Tunas Bangsa Bandung', 'PAUD Ceria Surabaya',
-  'PAUD Harapan Yogyakarta', 'PAUD Bintang Semarang', 'PAUD Melati Malang',
-  'PAUD Pelangi Denpasar', 'PAUD Kasih Medan', 'PAUD Mandiri Makassar',
-  'PAUD Anggrek Padang', 'PAUD Mawar Palembang', 'PAUD Dahlia Bogor',
-];
-
-// Deterministic share values for institution nominal
 const instNominalFactors = seededValues(30, 0.6, 1.4, 999);
 const instPctValues = seededValues(30, 42, 95, 777);
 
-function generateInstitusi(names: string[], jenjang: Jenjang, baseNominal: number): InstitusiPendidikan[] {
-  const kabkotaList = getKabkotaByProvinsi('p-12'); // Jawa Barat as default
-  return names.map((nama, i) => {
-    const nominal = baseNominal * instNominalFactors[i % instNominalFactors.length];
-    const pct = instPctValues[i % instPctValues.length];
-    const realisasi = Math.round(nominal * pct / 100);
-    const kab = kabkotaList[i % kabkotaList.length];
-    return {
-      id: `inst-${jenjang.toLowerCase()}-${i}`,
-      npsn: `${jenjang === 'UNIVERSITAS' ? '3' : jenjang === 'SMA' ? '2' : jenjang === 'SMP' ? '1' : jenjang === 'SD' ? '0' : '9'}${String(1000 + i)}`,
-      nama_institusi: nama,
-      jenjang,
-      kabupaten_kota_id: kab?.kabupaten_kota?.id || 'k-p-12-0',
-      kabupaten_kota_nama: kab?.kabupaten_kota?.nama_kabupaten_kota || 'Kabupaten Bogor',
-      provinsi_nama: 'Jawa Barat',
-      status_sekolah: (i % 3 === 0 || nama.includes('Al-Ikhlas') || nama.includes('Bina') || nama.includes('Pelita')) ? 'SWASTA' : 'NEGERI',
-      nomor_rekening: `${123 + i}.${456 + i * 3}.${789 + i * 7}.000`,
-      nominal_alokasi: Math.round(nominal),
-      realisasi_total: realisasi,
-      selisih: Math.round(nominal) - realisasi,
-      persentase_penyerapan: Math.round(pct * 10) / 10,
-      updated_at: '2026-04-15',
-    };
-  });
-}
+const trendRealisasiPct = [62.4, 68.5, 72.1, 74.5, 78.2, 81.3, 65.1];
 
-export function getInstitusiByJenjang(jenjang: Jenjang): InstitusiPendidikan[] {
-  switch (jenjang) {
-    case 'UNIVERSITAS': return generateInstitusi(universitas, 'UNIVERSITAS', 2_000_000_000_000);
-    case 'SMA': return generateInstitusi(smaNames, 'SMA', 800_000_000_000);
-    case 'SMP': return generateInstitusi(smpNames, 'SMP', 750_000_000_000);
-    case 'SD': return generateInstitusi(sdNames, 'SD', 700_000_000_000);
-    case 'PAUD': return generateInstitusi(paudNames, 'PAUD', 300_000_000_000);
-    default: return [];
-  }
-}
-
-// === USERS ===
-export const usersData: User[] = [
-  { id: 'u1', username: 'superadmin', email: 'superadmin@davincibank.co.id', role: 'SUPER_ADMIN', is_active: true, created_at: '2024-01-01' },
-  { id: 'u2', username: 'ahmad.fauzi', email: 'ahmad.fauzi@davincibank.co.id', role: 'ADMIN', is_active: true, created_at: '2024-02-15' },
-  { id: 'u3', username: 'sari.dewi', email: 'sari.dewi@regional.davincibank.co.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-12', is_active: true, created_at: '2024-03-10' },
-  { id: 'u4', username: 'budi.santoso', email: 'budi.santoso@area.davincibank.co.id', role: 'ADMIN_KABKOTA', kabupaten_kota_id: 'k-p-12-3', is_active: true, created_at: '2024-04-20' },
-  { id: 'u5', username: 'viewer.nasional', email: 'viewer@davincibank.co.id', role: 'VIEWER', is_active: true, created_at: '2024-05-01' },
-  { id: 'u6', username: 'auditor.bpk', email: 'auditor.internal@davincibank.co.id', role: 'AUDITOR', is_active: true, created_at: '2024-06-01' },
-  { id: 'u7', username: 'rina.wulan', email: 'rina.wulan@regional.davincibank.co.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-15', is_active: true, created_at: '2024-07-01' },
-  { id: 'u8', username: 'doni.pratama', email: 'doni.pratama@davincibank.co.id', role: 'ADMIN', is_active: false, created_at: '2024-01-15' },
-];
-
-// === DASHBOARD SUMMARY ===
-// Pre-computed realisasi values for trend (deterministic)
-const trendRealisasiPct = [68.2, 70.5, 72.1, 65.8, 71.3, 73.8, 67.5];
-
-export function getDashboardSummary(tahun: number = 2026): DashboardSummary {
-  const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6]; // default to 2026
-  const baseTahun = tahunAnggaranData[6]; // 2026 (769.1 T)
-  const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-
-  // Let's vary the realisasi percentage slightly based on the year for realism
-  const seed = (tahun % 7) || 1;
-  const realisasiShift = 0.95 + (seed * 0.012); // slight variations
-
-  const baseNominal = alokasiProvinsiData.reduce((s, p) => s + p.nominal_alokasi, 0);
-  const baseRealisasi = alokasiProvinsiData.reduce((s, p) => s + p.realisasi_total, 0);
-
-  const totalNominal = targetTahun.total_anggaran;
-  const totalRealisasi = Math.min(totalNominal, Math.round(baseRealisasi * scale * realisasiShift));
-
-  // Precise Jenjang math rollup (remainder to PAUD)
-  const uniNom = Math.round(150_000_000_000_000 * scale);
-  const smaNom = Math.round(200_000_000_000_000 * scale);
-  const smpNom = Math.round(180_000_000_000_000 * scale);
-  const sdNom = Math.round(200_000_000_000_000 * scale);
-  const paudNom = totalNominal - uniNom - smaNom - smpNom - sdNom;
-
-  const uniReal = Math.min(uniNom, Math.round(98_000_000_000_000 * scale * realisasiShift));
-  const smaReal = Math.min(smaNom, Math.round(130_000_000_000_000 * scale * realisasiShift));
-  const smpReal = Math.min(smpNom, Math.round(118_000_000_000_000 * scale * realisasiShift));
-  const sdReal = Math.min(sdNom, Math.round(126_000_000_000_000 * scale * realisasiShift));
-  const paudReal = totalRealisasi - uniReal - smaReal - smpReal - sdReal;
-
-  const jenjangData: Record<Jenjang, { nominal: number; realisasi: number }> = {
-    UNIVERSITAS: { nominal: uniNom, realisasi: uniReal },
-    SMA: { nominal: smaNom, realisasi: smaReal },
-    SMP: { nominal: smpNom, realisasi: smpReal },
-    SD: { nominal: sdNom, realisasi: sdReal },
-    PAUD: { nominal: paudNom, realisasi: paudReal },
-  };
-
-  const activeYears = tahunAnggaranData.filter(t => t.status !== 'DRAFT');
-
-  return {
-    total_nominal: totalNominal,
-    total_realisasi: totalRealisasi,
-    persentase_penyerapan: totalNominal > 0 ? (totalRealisasi / totalNominal) * 100 : 0,
-    per_jenjang: (Object.keys(jenjangData) as Jenjang[]).map(j => ({
-      jenjang: j,
-      nominal: jenjangData[j].nominal,
-      realisasi: jenjangData[j].realisasi,
-      persentase: jenjangData[j].nominal > 0 ? (jenjangData[j].realisasi / jenjangData[j].nominal) * 100 : 0,
-    })),
-    tren_tahunan: activeYears.map((t, i) => ({
-      tahun: t.tahun,
-      nominal: t.total_anggaran,
-      realisasi: Math.round(t.total_anggaran * (trendRealisasiPct[i] || 70) / 100),
-    })),
-  };
-}
-
-// === PROFIL INSTITUSI ===
 const bulanNames = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
-// Monthly spending distribution (higher in early months, tapering off)
-const monthlyPctDistribution = [
-  0.12, 0.10, 0.10, 0.10, 0.10, 0.10,
-  0.10, 0.10, 0.04, 0.008, 0.004, 0.004,
-];
-
-function generateSumberDana(institusi: InstitusiPendidikan, tahun: number = 2026): SumberDanaInstitusi[] {
-  const apbnTotalNom = Math.round(institusi.nominal_alokasi * 0.65);
-  const apbdTotalNom = Math.round(institusi.nominal_alokasi * 0.20);
-  const csrTotalNom = institusi.nominal_alokasi - apbnTotalNom - apbdTotalNom;
-
-  const apbnTotalReal = Math.round(institusi.realisasi_total * 0.65);
-  const apbdTotalReal = Math.round(institusi.realisasi_total * 0.20);
-  const csrTotalReal = institusi.realisasi_total - apbnTotalReal - apbdTotalReal;
-
-  const items: SumberDanaInstitusi[] = [];
-
-  // Helper to split a total nominal and realisasi into N terms
-  const distributeToTerms = (
-    prefix: string,
-    totalNom: number,
-    totalReal: number,
-    termCount: number,
-    months: string[]
-  ) => {
-    let remainingReal = totalReal;
-    let distributedNom = 0;
-    
-    for (let i = 0; i < termCount; i++) {
-      const isLast = i === termCount - 1;
-      const termNom = isLast ? (totalNom - distributedNom) : Math.round(totalNom / termCount);
-      distributedNom += termNom;
-
-      // Realisasi is filled sequentially (e.g. earlier terms get filled first)
-      const termReal = Math.min(termNom, remainingReal);
-      remainingReal -= termReal;
-
-      items.push({
-        id: `sd-${institusi.id}-${prefix.toLowerCase().replace(/[^a-z0-9]/g, '')}-${i + 1}`,
-        institusi_id: institusi.id,
-        nama_sumber: `${prefix} — Term ${i + 1} (${months[i]})`,
-        tahun_anggaran: String(tahun),
-        nominal: termNom,
-        realisasi: termReal,
-        saldo_di_bank: termNom - termReal,
-      });
-    }
-  };
-
-  // APBN disalurkan tiap 3 bulan (Maret, Juni, September, Desember)
-  distributeToTerms(
-    'Penyaluran APBN (Pusat)',
-    apbnTotalNom,
-    apbnTotalReal,
-    4,
-    ['Maret', 'Juni', 'September', 'Desember']
-  );
-
-  // APBD disalurkan tiap 3 bulan (April, Juli, Oktober, Desember)
-  distributeToTerms(
-    'Penyaluran APBD (Daerah)',
-    apbdTotalNom,
-    apbdTotalReal,
-    4,
-    ['April', 'Juli', 'Oktober', 'Desember']
-  );
-
-  // CSR disalurkan 1 kali (Term 1 / Mei)
-  items.push({
-    id: `sd-${institusi.id}-csr-1`,
-    institusi_id: institusi.id,
-    nama_sumber: `Dana Hibah & CSR Mitra — Sekaligus (Mei)`,
-    tahun_anggaran: String(tahun),
-    nominal: csrTotalNom,
-    realisasi: csrTotalReal,
-    saldo_di_bank: csrTotalNom - csrTotalReal,
-  });
-
-  return items;
-}
-
-function generatePengeluaranBulanan(institusi: InstitusiPendidikan): PengeluaranBulananInstitusi[] {
-  const totalRealisasi = institusi.realisasi_total;
-  const pcts = [0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.08, 0.08, 0.08, 0.06, 0.05, 0.05];
-  
-  let distributedSum = 0;
-  return bulanNames.map((bulan, i) => {
-    let nominal = 0;
-    if (i === 11) {
-      nominal = totalRealisasi - distributedSum;
-    } else {
-      nominal = Math.round(totalRealisasi * pcts[i]);
-      distributedSum += nominal;
-    }
-    return {
-      id: `pb-${institusi.id}-${i}`,
-      institusi_id: institusi.id,
-      nomor: i + 1,
-      bulan,
-      nominal_pengeluaran: nominal,
-      qty: 1,
-      sub_total: nominal,
-    };
-  });
-}
-
-export function getProfilInstitusi(id: string, tahun: number = 2026): ProfilInstitusi | null {
-  let found: InstitusiPendidikan | null = null;
-
-  const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6];
-  const baseTahun = tahunAnggaranData[6];
-  const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-  const seed = (tahun % 7) || 1;
-  const shift = 0.95 + (seed * 0.012);
-
-  if (id.startsWith('inst-k-p-') || id.startsWith('inst-kab-')) {
-    const match = id.match(/(k(?:ab)?-p-\d+-\d+)/);
-    if (match) {
-      const kabkotaId = match[1];
-      const provMatch = kabkotaId.match(/k(?:ab)?-p-(\d+)-/);
-      const provId = provMatch ? `p-${provMatch[1]}` : 'p-1';
-      const provData = alokasiProvinsiData.find(p => p.provinsi_id === provId);
-      const kabkotaData = getKabkotaByProvinsi(provId).find(k => k.kabupaten_kota_id === kabkotaId);
-      
-      if (provData && kabkotaData) {
-        const scaledKabkotaNominal = Math.round(kabkotaData.nominal_alokasi * scale);
-        const schools = getInstitusiByKabkota(
-          kabkotaId,
-          kabkotaData.kabupaten_kota.nama_kabupaten_kota,
-          provData.provinsi.nama_provinsi,
-          scaledKabkotaNominal
-        );
-        found = schools.find(inst => inst.id === id) || null;
-      }
-    }
-  } else {
-    // Search across all jenjang
-    const allJenjang: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
-    for (const j of allJenjang) {
-      const list = getInstitusiByJenjang(j);
-      const match = list.find(inst => inst.id === id);
-      if (match) {
-        const nominal = Math.round(match.nominal_alokasi * scale);
-        const realisasi = Math.min(nominal, Math.round(match.realisasi_total * scale * shift));
-        found = {
-          ...match,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
-        };
-        break;
-      }
-    }
-  }
-
-  if (!found) return null;
-
-  const sumberDana = generateSumberDana(found, tahun);
-  const pengeluaranBulanan = generatePengeluaranBulanan(found);
-
-  const totalNominalSumber = sumberDana.reduce((s, d) => s + d.nominal, 0);
-  const totalRealisasiSumber = sumberDana.reduce((s, d) => s + d.realisasi, 0);
-  const saldoSurplusDefisit = totalNominalSumber - totalRealisasiSumber;
-
-  return {
-    institusi: found,
-    sumber_dana: sumberDana,
-    pengeluaran_bulanan: pengeluaranBulanan,
-    saldo_surplus_defisit: saldoSurplusDefisit,
-  };
-}
-
-export function getAllInstitusi(): InstitusiPendidikan[] {
-  const allJenjang: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
-  return allJenjang.flatMap(j => getInstitusiByJenjang(j));
-}
-
-// === RINCIAN PENGELUARAN BULANAN (DETAIL PER ITEM) ===
 const produkJasaUniv = [
-  { nama: 'Pembangunan Gedung Mahasiswa', hargaBase: 150_000_000, qtyBase: 1 },
-  { nama: 'Pengadaan Buku Ajar A', hargaBase: 2_000_000, qtyBase: 600 },
-  { nama: 'Pengadaan Buku Ajar B', hargaBase: 2_000_000, qtyBase: 600 },
-  { nama: 'Pengadaan Buku Ajar C', hargaBase: 2_000_000, qtyBase: 600 },
-  { nama: 'Pengadaan ATK untuk Tata Usaha', hargaBase: 2_000_000, qtyBase: 1 },
-  { nama: 'Pembayaran Listrik', hargaBase: 7_000_000, qtyBase: 1 },
-  { nama: 'Transportasi Bisnis', hargaBase: 3_000_000, qtyBase: 1 },
-  { nama: 'Gaji Honorer Dosen S1', hargaBase: 3_000_000, qtyBase: 30 },
-  { nama: 'Gaji Security', hargaBase: 1_900_000, qtyBase: 10 },
-  { nama: 'Gaji Penjaga Universitas', hargaBase: 1_900_000, qtyBase: 3 },
-  { nama: 'PDAM', hargaBase: 8_000_000, qtyBase: 1 },
+  { nama: 'Biaya Penelitian Dosen', hargaBase: 45_000_000, qtyBase: 3 },
+  { nama: 'Pemeliharaan Laboratorium', hargaBase: 125_000_000, qtyBase: 1 },
+  { nama: 'Langganan Jurnal Ilmiah Scopus', hargaBase: 85_000_000, qtyBase: 1 },
+  { nama: 'Beasiswa Mahasiswa Berprestasi', hargaBase: 12_000_000, qtyBase: 15 },
+  { nama: 'Gaji Dosen Luar Biasa', hargaBase: 4_500_000, qtyBase: 12 },
 ];
 
 const produkJasaSMA = [
-  { nama: 'Pengadaan Buku Pelajaran', hargaBase: 150_000, qtyBase: 500 },
-  { nama: 'Pengadaan Seragam Olahraga', hargaBase: 120_000, qtyBase: 200 },
-  { nama: 'Pengadaan ATK', hargaBase: 1_500_000, qtyBase: 1 },
-  { nama: 'Pembayaran Listrik', hargaBase: 3_500_000, qtyBase: 1 },
-  { nama: 'Pemeliharaan Gedung', hargaBase: 5_000_000, qtyBase: 1 },
-  { nama: 'Gaji Honorer Guru', hargaBase: 2_500_000, qtyBase: 15 },
-  { nama: 'Gaji Security', hargaBase: 1_800_000, qtyBase: 3 },
-  { nama: 'Gaji Tukang Kebun', hargaBase: 1_500_000, qtyBase: 2 },
-  { nama: 'PDAM', hargaBase: 2_500_000, qtyBase: 1 },
-  { nama: 'Internet & WiFi', hargaBase: 1_200_000, qtyBase: 1 },
+  { nama: 'Buku Pelajaran Kurikulum Merdeka', hargaBase: 120_000, qtyBase: 250 },
+  { nama: 'Alat Tulis & Sarana Kantor', hargaBase: 15_000_000, qtyBase: 1 },
+  { nama: 'Pembayaran Listrik & Internet', hargaBase: 3_500_000, qtyBase: 3 },
+  { nama: 'Honor Pendidik Ekskul', hargaBase: 750_000, qtyBase: 8 },
+  { nama: 'Pemeliharaan Ruang Kelas', hargaBase: 25_000_000, qtyBase: 1 },
 ];
 
 const produkJasaSD = [
-  { nama: 'Pengadaan Buku Pelajaran', hargaBase: 80_000, qtyBase: 300 },
-  { nama: 'Pengadaan Alat Tulis Siswa', hargaBase: 500_000, qtyBase: 1 },
-  { nama: 'Pengadaan ATK Kantor', hargaBase: 800_000, qtyBase: 1 },
-  { nama: 'Pembayaran Listrik', hargaBase: 1_500_000, qtyBase: 1 },
-  { nama: 'Pemeliharaan Gedung', hargaBase: 3_000_000, qtyBase: 1 },
-  { nama: 'Gaji Honorer Guru', hargaBase: 2_000_000, qtyBase: 8 },
-  { nama: 'Gaji Penjaga Sekolah', hargaBase: 1_500_000, qtyBase: 1 },
-  { nama: 'PDAM', hargaBase: 800_000, qtyBase: 1 },
+  { nama: 'Buku Paket Tematik', hargaBase: 45_000, qtyBase: 400 },
+  { nama: 'Alat Peraga Edukatif', hargaBase: 8_500_000, qtyBase: 1 },
+  { nama: 'Konsumsi Rapat Guru', hargaBase: 35_000, qtyBase: 50 },
+  { nama: 'Penyediaan Sanitasi & Sabun', hargaBase: 2_500_000, qtyBase: 1 },
+  { nama: 'Honor Guru Non-PNS', hargaBase: 1_500_000, qtyBase: 3 },
 ];
 
 function getProdukJasaTemplate(jenjang: Jenjang) {
@@ -644,300 +181,574 @@ function getProdukJasaTemplate(jenjang: Jenjang) {
   }
 }
 
-const PAJAK_PERSEN = 11;
+// ============================================
+// Core Database APIs (Direct Supabase)
+// ============================================
 
-export function getRincianPengeluaranBulanan(
-  institusiId: string,
-  nomorBulan: number,
-  tahun: number = 2026
-): RincianPengeluaranBulanan | null {
-  let found: InstitusiPendidikan | null = null;
+export async function getTahunAnggaran(): Promise<TahunAnggaran[]> {
+  const { data, error } = await supabase
+    .from('tahun_anggaran')
+    .select('*')
+    .order('tahun', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
 
-  const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6];
-  const baseTahun = tahunAnggaranData[6];
-  const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-  const seedForInst = (tahun % 7) || 1;
-  const shift = 0.95 + (seedForInst * 0.012);
+export async function updateTahunAnggaranData(newData: TahunAnggaran[]) {
+  const { data: dbYears } = await supabase.from('tahun_anggaran').select('id');
+  const dbIds = dbYears?.map(y => y.id) || [];
+  const newIds = newData.map(y => y.id);
+  const deletedIds = dbIds.filter(id => !newIds.includes(id));
 
-  if (institusiId.startsWith('inst-k-p-') || institusiId.startsWith('inst-kab-')) {
-    const match = institusiId.match(/(k(?:ab)?-p-\d+-\d+)/);
-    if (match) {
-      const kabkotaId = match[1];
-      const provMatch = kabkotaId.match(/k(?:ab)?-p-(\d+)-/);
-      const provId = provMatch ? `p-${provMatch[1]}` : 'p-1';
-      const provData = alokasiProvinsiData.find(p => p.provinsi_id === provId);
-      const kabkotaData = getKabkotaByProvinsi(provId).find(k => k.kabupaten_kota_id === kabkotaId);
-      
-      if (provData && kabkotaData) {
-        const scaledKabkotaNominal = Math.round(kabkotaData.nominal_alokasi * scale);
-        const schools = getInstitusiByKabkota(
-          kabkotaId,
-          kabkotaData.kabupaten_kota.nama_kabupaten_kota,
-          provData.provinsi.nama_provinsi,
-          scaledKabkotaNominal
-        );
-        found = schools.find(inst => inst.id === institusiId) || null;
-      }
-    }
-  } else {
-    // Find the institusi
-    const allJenjang: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
-    for (const j of allJenjang) {
-      const list = getInstitusiByJenjang(j);
-      const match = list.find(inst => inst.id === institusiId);
-      if (match) {
-        const nominal = Math.round(match.nominal_alokasi * scale);
-        const realisasi = Math.min(nominal, Math.round(match.realisasi_total * scale * shift));
-        found = {
-          ...match,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
-        };
-        break;
-      }
-    }
+  if (deletedIds.length > 0) {
+    await supabase.from('tahun_anggaran').delete().in('id', deletedIds);
   }
 
-  if (!found) return null;
+  const { error } = await supabase.from('tahun_anggaran').upsert(newData);
+  if (error) throw error;
+}
 
-  const template = getProdukJasaTemplate(found.jenjang);
+export async function getAlokasiProvinsi(tahun: number): Promise<AlokasiProvinsi[]> {
+  const { data: yearRow } = await supabase
+    .from('tahun_anggaran')
+    .select('id')
+    .eq('tahun', tahun)
+    .single();
+  if (!yearRow) return [];
 
-  // Generate deterministic variation per month using seed
-  const seed = (nomorBulan * 17 + parseInt(found.id.replace(/\D/g, '') || '1', 10)) || 1;
+  const { data, error } = await supabase
+    .from('alokasi_provinsi')
+    .select('*, provinsi:provinsi(*)')
+    .eq('tahun_anggaran_id', yearRow.id);
+  
+  if (error) throw error;
+  return data || [];
+}
 
-  // Get target monthly nominal
-  const targetTotal = generatePengeluaranBulanan(found)[nomorBulan - 1].nominal_pengeluaran;
+export async function getKabkotaByProvinsi(
+  provinsiId: string,
+  tahun: number = 2026
+): Promise<AlokasiKabupatenKota[]> {
+  const { data: yearRow } = await supabase
+    .from('tahun_anggaran')
+    .select('id')
+    .eq('tahun', tahun)
+    .single();
+  if (!yearRow) return [];
 
-  // The subtotal satisfies: subtotal + Math.round(subtotal * 0.11) = targetTotal
-  const subTotal = Math.round(targetTotal / 1.11);
-  const pajakNominal = targetTotal - subTotal;
+  const { data: provAlloc } = await supabase
+    .from('alokasi_provinsi')
+    .select('id')
+    .eq('provinsi_id', provinsiId)
+    .eq('tahun_anggaran_id', yearRow.id)
+    .single();
+  if (!provAlloc) return [];
 
-  const itemSeeds = seededValues(template.length, 0.8, 1.2, seed);
-  const rawItems = template.map((t, i) => {
-    const rawVal = t.hargaBase * t.qtyBase * itemSeeds[i];
-    return { ...t, rawVal };
-  });
-  const totalRawVal = rawItems.reduce((sum, item) => sum + item.rawVal, 0);
+  const { data, error } = await supabase
+    .from('alokasi_kabupaten_kota')
+    .select('*, kabupaten_kota:kabupaten_kota(*)')
+    .eq('alokasi_provinsi_id', provAlloc.id);
+  
+  if (error) throw error;
+  return data || [];
+}
 
-  let distributedSum = 0;
-  const items: RincianPengeluaranItem[] = rawItems.map((t, i) => {
-    const isLast = i === template.length - 1;
-    let qty = isLast ? 1 : Math.max(1, t.qtyBase);
-    let itemJumlah = 0;
-    let hargaSatuan = 0;
+export async function getAllKabkota(tahun: number = 2026): Promise<AlokasiKabupatenKota[]> {
+  const { data: yearRow } = await supabase
+    .from('tahun_anggaran')
+    .select('id')
+    .eq('tahun', tahun)
+    .single();
+  if (!yearRow) return [];
 
-    if (isLast) {
-      itemJumlah = subTotal - distributedSum;
-      hargaSatuan = itemJumlah;
-    } else {
-      itemJumlah = Math.round(subTotal * (t.rawVal / totalRawVal));
-      hargaSatuan = Math.round(itemJumlah / qty);
-      itemJumlah = hargaSatuan * qty;
-      distributedSum += itemJumlah;
+  const { data: provAllocs } = await supabase
+    .from('alokasi_provinsi')
+    .select('id')
+    .eq('tahun_anggaran_id', yearRow.id);
+  
+  if (!provAllocs || provAllocs.length === 0) return [];
+  const provAllocIds = provAllocs.map(p => p.id);
+
+  const { data, error } = await supabase
+    .from('alokasi_kabupaten_kota')
+    .select('*, kabupaten_kota:kabupaten_kota(*)')
+    .in('alokasi_provinsi_id', provAllocIds);
+  
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getInstitusiByJenjang(jenjang: Jenjang): Promise<InstitusiPendidikan[]> {
+  const { data, error } = await supabase
+    .from('institusi_pendidikan')
+    .select('*')
+    .eq('jenjang', jenjang);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getUsersData(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getDashboardSummary(tahun: number = 2026): Promise<DashboardSummary> {
+  const { data: yearRow } = await supabase
+    .from('tahun_anggaran')
+    .select('*')
+    .eq('tahun', tahun)
+    .single();
+  
+  const totalNominal = yearRow ? Number(yearRow.total_anggaran) : 0;
+
+  let totalRealisasi = 0;
+  if (yearRow) {
+    const { data: provAllocs } = await supabase
+      .from('alokasi_provinsi')
+      .select('realisasi_total')
+      .eq('tahun_anggaran_id', yearRow.id);
+    
+    totalRealisasi = provAllocs?.reduce((sum, p) => sum + Number(p.realisasi_total || 0), 0) || 0;
+  }
+
+  const { data: schools } = await supabase
+    .from('institusi_pendidikan')
+    .select('jenjang, nominal_alokasi, realisasi_total');
+  
+  const jenjangSummaryMap: Record<Jenjang, { nominal: number; realisasi: number }> = {
+    UNIVERSITAS: { nominal: 0, realisasi: 0 },
+    SMA: { nominal: 0, realisasi: 0 },
+    SMP: { nominal: 0, realisasi: 0 },
+    SD: { nominal: 0, realisasi: 0 },
+    PAUD: { nominal: 0, realisasi: 0 },
+  };
+
+  schools?.forEach(s => {
+    const key = s.jenjang.toUpperCase() as Jenjang;
+    if (jenjangSummaryMap[key]) {
+      jenjangSummaryMap[key].nominal += Number(s.nominal_alokasi);
+      jenjangSummaryMap[key].realisasi += Number(s.realisasi_total);
     }
-
-    return {
-      id: `ri-${institusiId}-${nomorBulan}-${i}`,
-      nomor: i + 1,
-      nama_produk_jasa: `${t.nama} ${bulanNames[nomorBulan - 1]} ${tahun}`,
-      harga_satuan: hargaSatuan,
-      qty,
-      jumlah: itemJumlah,
-    };
   });
+
+  const per_jenjang = (Object.keys(jenjangSummaryMap) as Jenjang[]).map(j => ({
+    jenjang: j,
+    nominal: jenjangSummaryMap[j].nominal,
+    realisasi: jenjangSummaryMap[j].realisasi,
+    persentase: jenjangSummaryMap[j].nominal > 0 ? (jenjangSummaryMap[j].realisasi / jenjangSummaryMap[j].nominal) * 100 : 0,
+  }));
+
+  const { data: activeYears } = await supabase
+    .from('tahun_anggaran')
+    .select('*')
+    .neq('status', 'DRAFT')
+    .order('tahun', { ascending: true });
+  
+  const tren_tahunan = await Promise.all(
+    (activeYears || []).map(async (y) => {
+      const { data: provs } = await supabase
+        .from('alokasi_provinsi')
+        .select('realisasi_total')
+        .eq('tahun_anggaran_id', y.id);
+      
+      const real = provs?.reduce((sum, p) => sum + Number(p.realisasi_total || 0), 0) || 0;
+      return {
+        tahun: y.tahun,
+        nominal: Number(y.total_anggaran),
+        realisasi: real,
+      };
+    })
+  );
 
   return {
-    institusi_id: found.id,
-    institusi_nama: found.nama_institusi,
-    bulan: bulanNames[nomorBulan - 1],
-    nomor_bulan: nomorBulan,
-    items,
-    sub_total: subTotal,
-    pajak_persen: PAJAK_PERSEN,
-    pajak_nominal: pajakNominal,
-    total: subTotal + pajakNominal,
+    total_nominal: totalNominal,
+    total_realisasi: totalRealisasi,
+    persentase_penyerapan: totalNominal > 0 ? (totalRealisasi / totalNominal) * 100 : 0,
+    per_jenjang,
+    tren_tahunan,
   };
 }
 
-export function getJenjangBreakdownByKabkota(
+export async function getProfilInstitusi(
+  id: string,
+  tahun: number = 2026
+): Promise<ProfilInstitusi | null> {
+  const { data: school, error: schoolErr } = await supabase
+    .from('institusi_pendidikan')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (schoolErr || !school) return null;
+
+  const { data: sumberDana } = await supabase
+    .from('sumber_dana_institusi')
+    .select('*')
+    .eq('institusi_id', id)
+    .eq('tahun_anggaran', String(tahun));
+
+  const { data: monthlySpend } = await supabase
+    .from('pengeluaran_bulanan_institusi')
+    .select('*')
+    .eq('institusi_id', id)
+    .order('nomor', { ascending: true });
+
+  const totalMonthlySpend = monthlySpend?.reduce((sum, m) => sum + Number(m.sub_total || 0), 0) || 0;
+
+  return {
+    institusi: school,
+    sumber_dana: sumberDana || [],
+    pengeluaran_bulanan: monthlySpend || [],
+    saldo_surplus_defisit: Number(school.realisasi_total) - totalMonthlySpend,
+  };
+}
+
+export async function getAllInstitusi(): Promise<InstitusiPendidikan[]> {
+  const { data, error } = await supabase
+    .from('institusi_pendidikan')
+    .select('*');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getRincianPengeluaranBulanan(
+  institusiId: string,
+  nomorBulan: number,
+  tahun: number = 2026
+): Promise<RincianPengeluaranBulanan | null> {
+  const { data: school } = await supabase
+    .from('institusi_pendidikan')
+    .select('id, nama_institusi')
+    .eq('id', institusiId)
+    .single();
+  
+  if (!school) return null;
+
+  const { data: monthlySpend } = await supabase
+    .from('pengeluaran_bulanan_institusi')
+    .select('*')
+    .eq('institusi_id', institusiId)
+    .eq('nomor', nomorBulan)
+    .single();
+
+  const totalSpend = monthlySpend ? Number(monthlySpend.nominal_pengeluaran) : 0;
+
+  const { data: items } = await supabase
+    .from('rincian_pengeluaran_item')
+    .select('*')
+    .eq('institusi_id', institusiId)
+    .eq('nomor_bulan', nomorBulan);
+
+  const subTotal = Math.round(totalSpend / 1.11);
+  const pajakNominal = totalSpend - subTotal;
+
+  return {
+    institusi_id: school.id,
+    institusi_nama: school.nama_institusi,
+    bulan: bulanNames[nomorBulan - 1] || 'Januari',
+    nomor_bulan: nomorBulan,
+    items: items || [],
+    sub_total: subTotal,
+    pajak_persen: 11,
+    pajak_nominal: pajakNominal,
+    total: totalSpend,
+  };
+}
+
+// ============================================
+// Regional Breakdowns with Fallback to Mock Data
+// ============================================
+
+export async function getJenjangBreakdownByKabkota(
   kabkotaId: string,
   nominalAlokasi: number
-): JenjangBreakdownProvinsi[] {
-  const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
-  const provIdx = match ? parseInt(match[1], 10) : 1;
-  const kabIdx = match ? parseInt(match[2], 10) : 0;
-  const seed = provIdx * 31 + kabIdx + 3;
+): Promise<JenjangBreakdownProvinsi[]> {
+  const { data: schools, error } = await supabase
+    .from('institusi_pendidikan')
+    .select('jenjang, nominal_alokasi')
+    .eq('kabupaten_kota_id', kabkotaId);
+  
+  if (error) throw error;
 
-  let pUniv = 10;
-  let pSMA = 20;
-  let pSMK = 15;
-  let pSMP = 20;
-  let pSD = 30;
-  let pPAUD = 5;
+  // Fallback to deterministic mock generator if no schools in DB under this kabkota
+  if (!schools || schools.length === 0) {
+    const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
+    const provIdx = match ? parseInt(match[1], 10) : 1;
+    const kabIdx = match ? parseInt(match[2], 10) : 0;
+    const seed = provIdx * 31 + kabIdx + 3;
 
-  const cUniv = (seed * 3) % 4; // 0 to 3 universities
-  if (cUniv === 0) {
-    pSD += pUniv;
-    pUniv = 0;
+    let pUniv = 10;
+    let pSMA = 20;
+    let pSMK = 15;
+    let pSMP = 20;
+    let pSD = 30;
+    let pPAUD = 5;
+
+    const cUniv = (seed * 3) % 4;
+    if (cUniv === 0) {
+      pSD += pUniv;
+      pUniv = 0;
+    }
+    const cSMA = 3 + ((seed * 7) % 15);
+    const cSMK = 2 + ((seed * 5) % 10);
+    const cSMP = 6 + ((seed * 11) % 25);
+    const cSD = 15 + ((seed * 17) % 80);
+    const cPAUD = 10 + ((seed * 23) % 60);
+
+    const jenjangs = [
+      { label: 'Universitas (Strata 1)', porsi: pUniv, count: cUniv },
+      { label: 'Sekolah Menengah Atas (SMA)', porsi: pSMA, count: cSMA },
+      { label: 'Sekolah Menengah Kejuruan (SMK)', porsi: pSMK, count: cSMK },
+      { label: 'Sekolah Menengah Pertama (SMP)', porsi: pSMP, count: cSMP },
+      { label: 'Sekolah Dasar (SD)', porsi: pSD, count: cSD },
+      { label: 'Pendidikan Anak Usia Dini (PAUD)', porsi: pPAUD, count: cPAUD },
+    ];
+
+    return jenjangs.map((j, i) => {
+      const nominal = Math.round(nominalAlokasi * j.porsi / 100);
+      return {
+        nomor: i + 1,
+        jenjang: j.label,
+        jumlah_sekolah: j.count,
+        nominal_keseluruhan: nominal,
+        porsi_anggaran: j.porsi,
+      };
+    });
   }
-  const cSMA = 3 + ((seed * 7) % 15);
-  const cSMK = 2 + ((seed * 5) % 10);
-  const cSMP = 6 + ((seed * 11) % 25);
-  const cSD = 15 + ((seed * 17) % 80);
-  const cPAUD = 10 + ((seed * 23) % 60);
+
+  const counts: Record<string, { count: number; nominal: number }> = {
+    'UNIVERSITAS': { count: 0, nominal: 0 },
+    'SMA': { count: 0, nominal: 0 },
+    'SMP': { count: 0, nominal: 0 },
+    'SD': { count: 0, nominal: 0 },
+    'PAUD': { count: 0, nominal: 0 },
+  };
+
+  schools.forEach(s => {
+    const key = s.jenjang.toUpperCase();
+    if (counts[key]) {
+      counts[key].count++;
+      counts[key].nominal += Number(s.nominal_alokasi);
+    }
+  });
 
   const jenjangs = [
-    { label: 'Universitas (Strata 1)', porsi: pUniv, count: cUniv },
-    { label: 'Sekolah Menengah Atas (SMA)', porsi: pSMA, count: cSMA },
-    { label: 'Sekolah Menengah Kejuruan (SMK)', porsi: pSMK, count: cSMK },
-    { label: 'Sekolah Menengah Pertama (SMP)', porsi: pSMP, count: cSMP },
-    { label: 'Sekolah Dasar (SD)', porsi: pSD, count: cSD },
-    { label: 'Pendidikan Anak Usia Dini (PAUD)', porsi: pPAUD, count: cPAUD },
+    { label: 'Universitas (Strata 1)', key: 'UNIVERSITAS' },
+    { label: 'Sekolah Menengah Atas (SMA)', key: 'SMA' },
+    { label: 'Sekolah Menengah Kejuruan (SMK)', key: 'SMA' }, // merged or custom
+    { label: 'Sekolah Menengah Pertama (SMP)', key: 'SMP' },
+    { label: 'Sekolah Dasar (SD)', key: 'SD' },
+    { label: 'Pendidikan Anak Usia Dini (PAUD)', key: 'PAUD' },
   ];
 
   return jenjangs.map((j, i) => {
-    const nominal = Math.round(nominalAlokasi * j.porsi / 100);
+    const nominal = counts[j.key].nominal;
+    const porsi = nominalAlokasi > 0 ? (nominal / nominalAlokasi) * 100 : 0;
     return {
       nomor: i + 1,
       jenjang: j.label,
-      jumlah_sekolah: j.count,
+      jumlah_sekolah: counts[j.key].count,
       nominal_keseluruhan: nominal,
-      porsi_anggaran: j.porsi,
+      porsi_anggaran: porsi,
     };
   });
 }
 
-export function getInstitusiByKabkota(
+export async function getInstitusiByKabkota(
   kabkotaId: string,
   namaKabkota: string,
   provinsiNama: string,
   totalNominal: number
-): InstitusiPendidikan[] {
-  const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
-  const provIdx = match ? parseInt(match[1], 10) : 1;
-  const kabIdx = match ? parseInt(match[2], 10) : 0;
-  const seed = provIdx * 31 + kabIdx + 3;
+): Promise<InstitusiPendidikan[]> {
+  const { data: schools, error } = await supabase
+    .from('institusi_pendidikan')
+    .select('*')
+    .eq('kabupaten_kota_id', kabkotaId);
+  
+  if (error) throw error;
 
-  let pUniv = 10;
-  let pSMA = 20;
-  let pSMK = 15;
-  let pSMP = 20;
-  let pSD = 30;
-  let pPAUD = 5;
+  // Fallback to deterministic mock generator if no schools in DB
+  if (!schools || schools.length === 0) {
+    const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
+    const provIdx = match ? parseInt(match[1], 10) : 1;
+    const kabIdx = match ? parseInt(match[2], 10) : 0;
+    const seed = provIdx * 31 + kabIdx + 3;
 
-  const cUniv = (seed * 3) % 4;
-  if (cUniv === 0) {
-    pSD += pUniv;
-    pUniv = 0;
+    let pUniv = 10;
+    let pSMA = 20;
+    let pSMK = 15;
+    let pSMP = 20;
+    let pSD = 30;
+    let pPAUD = 5;
+
+    const cUniv = (seed * 3) % 4;
+    if (cUniv === 0) {
+      pSD += pUniv;
+      pUniv = 0;
+    }
+    const cSMA = 3 + ((seed * 7) % 15);
+    const cSMK = 2 + ((seed * 5) % 10);
+    const cSMP = 6 + ((seed * 11) % 25);
+    const cSD = 15 + ((seed * 17) % 80);
+    const cPAUD = 10 + ((seed * 23) % 60);
+
+    const cleanKabName = namaKabkota.replace('Kab. ', '').replace('Kota ', '');
+
+    const jenjangConfigs = [
+      { key: 'UNIVERSITAS' as const, porsi: pUniv, count: cUniv, prefix: 'Universitas', baseNominal: 50_000_000_000 },
+      { key: 'SMA' as const, porsi: pSMA, count: cSMA, prefix: 'SMAN', baseNominal: 5_000_000_000 },
+      { key: 'SMP' as const, porsi: pSMP, count: cSMP, prefix: 'SMPN', baseNominal: 3_000_000_000 },
+      { key: 'SD' as const, porsi: pSD, count: cSD, prefix: 'SDN', baseNominal: 1_500_000_000 },
+      { key: 'PAUD' as const, porsi: pPAUD, count: cPAUD, prefix: 'PAUD', baseNominal: 500_000_000 },
+      { key: 'SMA' as const, porsi: pSMK, count: cSMK, prefix: 'SMKN', baseNominal: 4_500_000_000, label: 'SMK' },
+    ];
+
+    const list: InstitusiPendidikan[] = [];
+    let schoolCounter = 1;
+
+    jenjangConfigs.forEach((jc) => {
+      if (jc.count === 0) return;
+      const jenjangBudget = Math.round(totalNominal * jc.porsi / 100);
+      let distributedSum = 0;
+
+      for (let i = 0; i < jc.count; i++) {
+        const schoolSeed = seed + schoolCounter * 7;
+        const variation = 0.8 + ((schoolSeed * 97) % 5) * 0.1;
+        
+        let schoolNominal = 0;
+        if (i === jc.count - 1) {
+          schoolNominal = jenjangBudget - distributedSum;
+        } else {
+          schoolNominal = Math.round((jenjangBudget / jc.count) * variation);
+          distributedSum += schoolNominal;
+        }
+
+        const realisasiPct = 60 + ((schoolSeed * 53) % 36);
+        const realisasi = Math.round(schoolNominal * realisasiPct / 100);
+        const isSwasta = (schoolSeed % 5 === 0 && jc.key !== 'UNIVERSITAS');
+        const status_sekolah = isSwasta ? ('SWASTA' as const) : ('NEGERI' as const);
+
+        let schoolName = '';
+        if (jc.key === 'UNIVERSITAS') {
+          const univTypes = ['Universitas', 'IAIN', 'STIE', 'Politeknik'];
+          const type = univTypes[i % univTypes.length];
+          schoolName = `${type} ${cleanKabName} ${i > 0 ? String.fromCharCode(65 + i) : ''}`;
+        } else {
+          const levelLabel = jc.label || jc.key;
+          schoolName = isSwasta 
+            ? `${levelLabel} Swasta Bina Bangsa ${cleanKabName}` 
+            : `${jc.prefix} ${i + 1} ${cleanKabName}`;
+        }
+
+        list.push({
+          id: `inst-${kabkotaId}-${schoolCounter}`,
+          npsn: `${jc.key === 'UNIVERSITAS' ? '3' : jc.key === 'SMA' ? '2' : jc.key === 'SMP' ? '1' : jc.key === 'SD' ? '0' : '9'}${String(2000 + schoolCounter)}`,
+          nama_institusi: schoolName,
+          jenjang: jc.label === 'SMK' ? 'SMA' : jc.key,
+          kabupaten_kota_id: kabkotaId,
+          kabupaten_kota_nama: namaKabkota,
+          provinsi_nama: provinsiNama,
+          status_sekolah,
+          nomor_rekening: `100.${200 + schoolCounter}.${300 + schoolCounter * 3}.000`,
+          nominal_alokasi: schoolNominal,
+          realisasi_total: realisasi,
+          selisih: schoolNominal - realisasi,
+          persentase_penyerapan: Math.round((realisasi / schoolNominal) * 1000) / 10,
+          updated_at: '2026-04-15',
+        });
+
+        schoolCounter++;
+      }
+    });
+
+    return list;
   }
-  const cSMA = 3 + ((seed * 7) % 15);
-  const cSMK = 2 + ((seed * 5) % 10);
-  const cSMP = 6 + ((seed * 11) % 25);
-  const cSD = 15 + ((seed * 17) % 80);
-  const cPAUD = 10 + ((seed * 23) % 60);
 
-  const cleanKabName = namaKabkota.replace('Kab. ', '').replace('Kota ', '');
+  return schools;
+}
 
-  const jenjangConfigs = [
-    { key: 'UNIVERSITAS' as const, porsi: pUniv, count: cUniv, prefix: 'Universitas', baseNominal: 50_000_000_000 },
-    { key: 'SMA' as const, porsi: pSMA, count: cSMA, prefix: 'SMAN', baseNominal: 5_000_000_000 },
-    { key: 'SMP' as const, porsi: pSMP, count: cSMP, prefix: 'SMPN', baseNominal: 3_000_000_000 },
-    { key: 'SD' as const, porsi: pSD, count: cSD, prefix: 'SDN', baseNominal: 1_500_000_000 },
-    { key: 'PAUD' as const, porsi: pPAUD, count: cPAUD, prefix: 'PAUD', baseNominal: 500_000_000 },
-    { key: 'SMA' as const, porsi: pSMK, count: cSMK, prefix: 'SMKN', baseNominal: 4_500_000_000, label: 'SMK' }, // Custom labeling for SMK
-  ];
+export async function getJenjangBreakdownByProvinsi(
+  provinsiId: string,
+  nominalAlokasi: number
+): Promise<JenjangBreakdownProvinsi[]> {
+  const { data: provRow } = await supabase
+    .from('provinsi')
+    .select('nama_provinsi')
+    .eq('id', provinsiId)
+    .single();
+  
+  if (!provRow) return [];
 
-  // We will distribute the totalNominal to each jenjang
-  const list: InstitusiPendidikan[] = [];
-  let schoolCounter = 1;
+  const { data: schools } = await supabase
+    .from('institusi_pendidikan')
+    .select('jenjang, nominal_alokasi')
+    .eq('provinsi_nama', provRow.nama_provinsi);
 
-  jenjangConfigs.forEach((jc) => {
-    if (jc.count === 0) return;
-    const jenjangBudget = Math.round(totalNominal * jc.porsi / 100);
-    let distributedSum = 0;
+  // Fallback to deterministic mock generator if no schools in DB
+  if (!schools || schools.length === 0) {
+    const provIdx = parseInt(provinsiId.replace('p-', ''), 10) - 1;
+    const seed = isNaN(provIdx) ? 1 : provIdx + 1;
 
-    for (let i = 0; i < jc.count; i++) {
-      // Deterministic variation per school
-      const schoolSeed = seed + schoolCounter * 7;
-      const variation = 0.8 + ((schoolSeed * 97) % 5) * 0.1; // 0.8 to 1.2
-      
-      let schoolNominal = 0;
-      if (i === jc.count - 1) {
-        schoolNominal = jenjangBudget - distributedSum;
-      } else {
-        schoolNominal = Math.round((jenjangBudget / jc.count) * variation);
-        distributedSum += schoolNominal;
-      }
+    const jenjangs = [
+      { label: 'Universitas (Strata 1)', porsi: 5, baseCount: 15, countMod: 50, countMul: 11 },
+      { label: 'Sekolah Menengah Atas (SMA)', porsi: 15, baseCount: 150, countMod: 400, countMul: 43 },
+      { label: 'Sekolah Menengah Kejuruan (SMK)', porsi: 10, baseCount: 100, countMod: 300, countMul: 29 },
+      { label: 'Sekolah Menengah Pertama (SMP)', porsi: 25, baseCount: 400, countMod: 1000, countMul: 83 },
+      { label: 'Sekolah Dasar (SD)', porsi: 40, baseCount: 1000, countMod: 2500, countMul: 113 },
+      { label: 'Pendidikan Anak Usia Dini (PAUD)', porsi: 5, baseCount: 1200, countMod: 3500, countMul: 157 },
+    ];
 
-      const realisasiPct = 60 + ((schoolSeed * 53) % 36); // 60% to 95%
-      const realisasi = Math.round(schoolNominal * realisasiPct / 100);
-      const isSwasta = (schoolSeed % 5 === 0 && jc.key !== 'UNIVERSITAS');
-      const status_sekolah = isSwasta ? ('SWASTA' as const) : ('NEGERI' as const);
+    return jenjangs.map((j, i) => {
+      const count = j.baseCount + ((seed * j.countMul) % j.countMod);
+      const nominal = Math.round(nominalAlokasi * j.porsi / 100);
+      return {
+        nomor: i + 1,
+        jenjang: j.label,
+        jumlah_sekolah: count,
+        nominal_keseluruhan: nominal,
+        porsi_anggaran: j.porsi,
+      };
+    });
+  }
 
-      let schoolName = '';
-      if (jc.key === 'UNIVERSITAS') {
-        const univTypes = ['Universitas', 'IAIN', 'STIE', 'Politeknik'];
-        const type = univTypes[i % univTypes.length];
-        schoolName = `${type} ${cleanKabName} ${i > 0 ? String.fromCharCode(65 + i) : ''}`;
-      } else {
-        const levelLabel = jc.label || jc.key;
-        schoolName = isSwasta 
-          ? `${levelLabel} Swasta Bina Bangsa ${cleanKabName}` 
-          : `${jc.prefix} ${i + 1} ${cleanKabName}`;
-      }
+  const counts: Record<string, { count: number; nominal: number }> = {
+    'UNIVERSITAS': { count: 0, nominal: 0 },
+    'SMA': { count: 0, nominal: 0 },
+    'SMP': { count: 0, nominal: 0 },
+    'SD': { count: 0, nominal: 0 },
+    'PAUD': { count: 0, nominal: 0 },
+  };
 
-      list.push({
-        id: `inst-${kabkotaId}-${schoolCounter}`,
-        npsn: `${jc.key === 'UNIVERSITAS' ? '3' : jc.key === 'SMA' ? '2' : jc.key === 'SMP' ? '1' : jc.key === 'SD' ? '0' : '9'}${String(2000 + schoolCounter)}`,
-        nama_institusi: schoolName,
-        jenjang: jc.label === 'SMK' ? 'SMA' : jc.key, // fallback mapping to main Jenjang type
-        kabupaten_kota_id: kabkotaId,
-        kabupaten_kota_nama: namaKabkota,
-        provinsi_nama: provinsiNama,
-        status_sekolah,
-        nomor_rekening: `100.${200 + schoolCounter}.${300 + schoolCounter * 3}.000`,
-        nominal_alokasi: schoolNominal,
-        realisasi_total: realisasi,
-        selisih: schoolNominal - realisasi,
-        persentase_penyerapan: Math.round((realisasi / schoolNominal) * 1000) / 10,
-        updated_at: '2026-04-15',
-      });
-
-      schoolCounter++;
+  schools.forEach(s => {
+    const key = s.jenjang.toUpperCase();
+    if (counts[key]) {
+      counts[key].count++;
+      counts[key].nominal += Number(s.nominal_alokasi);
     }
   });
 
-  return list;
-}
-
-
-export function getJenjangBreakdownByProvinsi(
-  provinsiId: string,
-  nominalAlokasi: number
-): JenjangBreakdownProvinsi[] {
-  const provIdx = parseInt(provinsiId.replace('p-', ''), 10) - 1;
-  const seed = isNaN(provIdx) ? 1 : provIdx + 1;
-
   const jenjangs = [
-    { label: 'Universitas (Strata 1)', porsi: 5, baseCount: 15, countMod: 50, countMul: 11 },
-    { label: 'Sekolah Menengah Atas (SMA)', porsi: 15, baseCount: 150, countMod: 400, countMul: 43 },
-    { label: 'Sekolah Menengah Kejuruan (SMK)', porsi: 10, baseCount: 100, countMod: 300, countMul: 29 },
-    { label: 'Sekolah Menengah Pertama (SMP)', porsi: 25, baseCount: 400, countMod: 1000, countMul: 83 },
-    { label: 'Sekolah Dasar (SD)', porsi: 40, baseCount: 1000, countMod: 2500, countMul: 113 },
-    { label: 'Pendidikan Anak Usia Dini (PAUD)', porsi: 5, baseCount: 1200, countMod: 3500, countMul: 157 },
+    { label: 'Universitas (Strata 1)', key: 'UNIVERSITAS', porsi: 5 },
+    { label: 'Sekolah Menengah Atas (SMA)', key: 'SMA', porsi: 15 },
+    { label: 'Sekolah Menengah Kejuruan (SMK)', key: 'SMA', porsi: 10 },
+    { label: 'Sekolah Menengah Pertama (SMP)', key: 'SMP', porsi: 25 },
+    { label: 'Sekolah Dasar (SD)', key: 'SD', porsi: 40 },
+    { label: 'Pendidikan Anak Usia Dini (PAUD)', key: 'PAUD', porsi: 5 },
   ];
 
   return jenjangs.map((j, i) => {
-    const count = j.baseCount + ((seed * j.countMul) % j.countMod);
-    const nominal = Math.round(nominalAlokasi * j.porsi / 100);
+    const nominal = counts[j.key].nominal;
+    const porsi = nominalAlokasi > 0 ? (nominal / nominalAlokasi) * 100 : j.porsi;
     return {
       nomor: i + 1,
       jenjang: j.label,
-      jumlah_sekolah: count,
+      jumlah_sekolah: counts[j.key].count,
       nominal_keseluruhan: nominal,
-      porsi_anggaran: j.porsi,
+      porsi_anggaran: porsi,
     };
   });
 }

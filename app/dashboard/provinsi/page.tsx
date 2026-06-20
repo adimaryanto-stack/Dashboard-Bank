@@ -5,39 +5,33 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
-import { alokasiProvinsiData, tahunAnggaranData } from '@/lib/data';
+import { getAlokasiProvinsi } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiProvinsi } from '@/types';
 import { Search, Download, RefreshCw, Plus } from 'lucide-react';
 
 export default function ProvinsiPage() {
   const { activeTahun } = useAppStore();
+  const [data, setData] = useState<AlokasiProvinsi[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const scaledProvinsiData = useMemo(() => {
-    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
-    const baseTahun = tahunAnggaranData[6];
-    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-    const seed = (activeTahun % 7) || 1;
-    const shift = 0.95 + (seed * 0.012);
-
-    return alokasiProvinsiData.map(p => {
-      const nominal = Math.round(p.nominal_alokasi * scale);
-      const realisasi = Math.min(nominal, Math.round(p.realisasi_total * scale * shift));
-      return {
-        ...p,
-        nominal_alokasi: nominal,
-        realisasi_total: realisasi,
-        selisih: nominal - realisasi,
-        persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
-      };
-    });
-  }, [activeTahun]);
-
-  const [data, setData] = useState<AlokasiProvinsi[]>(scaledProvinsiData);
+  const fetchData = () => {
+    setLoading(true);
+    getAlokasiProvinsi(activeTahun)
+      .then(res => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    setData(scaledProvinsiData);
-  }, [scaledProvinsiData]);
+    fetchData();
+  }, [activeTahun]);
 
   const [search, setSearch] = useState('');
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
@@ -59,25 +53,44 @@ export default function ProvinsiPage() {
     setEditValue(String(value));
   };
 
-  const commitEdit = () => {
+  const commitEdit = async () => {
     if (!editingCell) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setData(prev => prev.map(p => {
-        if (p.id !== editingCell.id) return p;
-        const nominal = editingCell.field === 'nominal' ? parsed : p.nominal_alokasi;
-        const realisasi = editingCell.field === 'realisasi' ? parsed : p.realisasi_total;
-        return {
-          ...p,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
-        };
-      }));
+      const target = data.find(p => p.id === editingCell.id);
+      if (target) {
+        const nominal = editingCell.field === 'nominal' ? parsed : target.nominal_alokasi;
+        const realisasi = editingCell.field === 'realisasi' ? parsed : target.realisasi_total;
+
+        setData(prev => prev.map(p => {
+          if (p.id !== editingCell.id) return p;
+          return {
+            ...p,
+            nominal_alokasi: nominal,
+            realisasi_total: realisasi,
+            selisih: nominal - realisasi,
+            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
+          };
+        }));
+
+        const { error } = await supabase
+          .from('alokasi_provinsi')
+          .update({
+            nominal_alokasi: nominal,
+            realisasi_total: realisasi,
+          })
+          .eq('id', editingCell.id);
+
+        if (error) {
+          console.error(error);
+          alert('Gagal menyimpan perubahan ke database.');
+          fetchData();
+        }
+      }
     }
     setEditingCell(null);
   };
+
 
   const renderCell = (row: AlokasiProvinsi, field: 'nominal' | 'realisasi') => {
     const value = field === 'nominal' ? row.nominal_alokasi : row.realisasi_total;
@@ -137,7 +150,7 @@ export default function ProvinsiPage() {
             <Plus size={14} />
             Tambah Provinsi
           </button>
-          <button className="btn btn-ghost">
+          <button onClick={fetchData} className="btn btn-ghost">
             <RefreshCw size={14} />
             Refresh
           </button>
@@ -149,48 +162,54 @@ export default function ProvinsiPage() {
 
         {/* Spreadsheet Table */}
         <div className="sheet-container">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
-                <th className="sheet-header-cell text-left" style={{ minWidth: 200 }}>Nama Provinsi / Wilayah</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Alokasi Pagu (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Dana Cair (Rp)</th>
-                <th className="sheet-header-cell text-right" style={{ minWidth: 150 }}>Dana Pending</th>
-                <th className="sheet-header-cell text-center" style={{ width: 120 }}>% Penyaluran</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row, idx) => (
-                <tr key={row.id} className="hover:bg-indigo-50/50 transition">
-                  <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
-                  <td className="sheet-cell text-left font-medium text-text-primary">
-                    <Link href={`/dashboard/provinsi/${row.provinsi_id}`} className="hover:text-accent hover:underline transition-colors">
-                      {row.provinsi.nama_provinsi}
-                    </Link>
-                  </td>
-                  {renderCell(row, 'nominal')}
-                  {renderCell(row, 'realisasi')}
-                  <td className="sheet-cell text-right text-rose-600">{fmtTriliun(row.selisih)}</td>
-                  <td className="sheet-cell text-center">
-                    <PctBadge value={row.persentase_penyerapan} />
+          {loading ? (
+            <div className="p-12 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="sheet-header-cell text-center" style={{ width: 50 }}>No</th>
+                  <th className="sheet-header-cell text-left" style={{ minWidth: 200 }}>Nama Provinsi / Wilayah</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Alokasi Pagu (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 180 }}>Dana Cair (Rp)</th>
+                  <th className="sheet-header-cell text-right" style={{ minWidth: 150 }}>Dana Pending</th>
+                  <th className="sheet-header-cell text-center" style={{ width: 120 }}>% Penyaluran</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((row, idx) => (
+                  <tr key={row.id} className="hover:bg-indigo-50/50 transition">
+                    <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
+                    <td className="sheet-cell text-left font-medium text-text-primary">
+                      <Link href={`/dashboard/provinsi/${row.provinsi_id}`} className="hover:text-accent hover:underline transition-colors">
+                        {row.provinsi.nama_provinsi}
+                      </Link>
+                    </td>
+                    {renderCell(row, 'nominal')}
+                    {renderCell(row, 'realisasi')}
+                    <td className="sheet-cell text-right text-rose-600">{fmtTriliun(row.selisih)}</td>
+                    <td className="sheet-cell text-center">
+                      <PctBadge value={row.persentase_penyerapan} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="sheet-footer-cell text-center" />
+                  <td className="sheet-footer-cell text-left font-bold">TOTAL ({filtered.length} Provinsi)</td>
+                  <td className="sheet-footer-cell text-right">{fmtRupiah(totals.nominal)}</td>
+                  <td className="sheet-footer-cell text-right">{fmtRupiah(totals.realisasi)}</td>
+                  <td className="sheet-footer-cell text-right text-rose-600">{fmtTriliun(totals.selisih)}</td>
+                  <td className="sheet-footer-cell text-center">
+                    <PctBadge value={totals.pct} size="md" />
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="sheet-footer-cell text-center" />
-                <td className="sheet-footer-cell text-left font-bold">TOTAL ({filtered.length} Provinsi)</td>
-                <td className="sheet-footer-cell text-right">{fmtRupiah(totals.nominal)}</td>
-                <td className="sheet-footer-cell text-right">{fmtRupiah(totals.realisasi)}</td>
-                <td className="sheet-footer-cell text-right text-rose-600">{fmtTriliun(totals.selisih)}</td>
-                <td className="sheet-footer-cell text-center">
-                  <PctBadge value={totals.pct} size="md" />
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          )}
         </div>
 
         <p className="mt-3 text-xs text-text-muted">

@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
-import { tahunAnggaranData } from '@/lib/data';
+import { getTahunAnggaran } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
+import { TahunAnggaran } from '@/types';
 import { Bell, Search, Menu, CheckCheck, Info, AlertTriangle, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
@@ -20,33 +22,45 @@ interface NotificationItem {
 
 export default function Header({ title, subtitle }: HeaderProps) {
   const { activeTahun, setActiveTahun, toggleSidebar } = useAppStore();
-  const activeTahunList = tahunAnggaranData.filter(t => t.status !== 'DRAFT');
+  const [activeTahunList, setActiveTahunList] = useState<TahunAnggaran[]>([]);
+
+  useEffect(() => {
+    getTahunAnggaran()
+      .then(res => {
+        setActiveTahunList(res.filter(t => t.status !== 'DRAFT'));
+      })
+      .catch(console.error);
+  }, []);
 
   // Notification States
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'n1',
-      message: 'Dana Pagu APBN 2026 Provinsi Aceh sukses teralokasikan.',
-      time: '10 menit yang lalu',
-      unread: true,
-      type: 'success',
-    },
-    {
-      id: 'n2',
-      message: 'Transfer dana Universitas Indonesia bulan Januari telah sukses dikreditkan.',
-      time: '1 jam yang lalu',
-      unread: true,
-      type: 'info',
-    },
-    {
-      id: 'n3',
-      message: 'Peringatan: Penyaluran dana Area Ogan Komering Ulu di bawah 50%.',
-      time: '3 jam yang lalu',
-      unread: true,
-      type: 'warning',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('id', { ascending: true });
+      if (!error && data) {
+        setNotifications(
+          data.map((n: any) => ({
+            id: n.id,
+            message: n.message,
+            time: n.time_label,
+            unread: n.unread,
+            type: n.type,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -54,12 +68,36 @@ export default function Header({ title, subtitle }: HeaderProps) {
     setShowNotifications(prev => !prev);
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ unread: false })
+        .eq('unread', true);
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+      fetchNotifications();
+    }
   };
 
-  const toggleRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: !n.unread } : n));
+  const toggleRead = async (id: string) => {
+    const item = notifications.find(n => n.id === id);
+    if (!item) return;
+    const newUnread = !item.unread;
+
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: newUnread } : n));
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ unread: newUnread })
+        .eq('id', id);
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+      fetchNotifications();
+    }
   };
 
   return (

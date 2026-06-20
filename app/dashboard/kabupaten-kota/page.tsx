@@ -4,44 +4,53 @@ import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
-import { alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
+import { getAlokasiProvinsi, getKabkotaByProvinsi } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
-import { AlokasiKabupatenKota } from '@/types';
+import { AlokasiKabupatenKota, AlokasiProvinsi } from '@/types';
 import { Search, Download, RefreshCw, Plus } from 'lucide-react';
 
 export default function KabupatenKotaPage() {
   const { activeTahun } = useAppStore();
-  const [selectedProvinsi, setSelectedProvinsi] = useState(alokasiProvinsiData[11].provinsi_id); // Jawa Barat
+  const [provList, setProvList] = useState<AlokasiProvinsi[]>([]);
+  const [selectedProvinsi, setSelectedProvinsi] = useState<string>('');
+  const [localData, setLocalData] = useState<AlokasiKabupatenKota[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  const rawData = useMemo(() => {
-    const list = getKabkotaByProvinsi(selectedProvinsi);
-    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
-    const baseTahun = tahunAnggaranData[6];
-    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
-    const seed = (activeTahun % 7) || 1;
-    const shift = 0.95 + (seed * 0.012);
+  // Load provinces list
+  useEffect(() => {
+    getAlokasiProvinsi(activeTahun)
+      .then(res => {
+        setProvList(res);
+        if (res.length > 0) {
+          const jabar = res.find(p => p.provinsi_id === 'p-12') || res[0];
+          setSelectedProvinsi(jabar.provinsi_id);
+        }
+      })
+      .catch(console.error);
+  }, [activeTahun]);
 
-    return list.map(item => {
-      const nominal = Math.round(item.nominal_alokasi * scale);
-      const realisasi = Math.min(nominal, Math.round(item.realisasi_total * scale * shift));
-      return {
-        ...item,
-        nominal_alokasi: nominal,
-        realisasi_total: realisasi,
-        selisih: nominal - realisasi,
-        persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
-      };
-    });
-  }, [selectedProvinsi, activeTahun]);
-
-  const [localData, setLocalData] = useState<AlokasiKabupatenKota[]>(rawData);
+  // Load kabkota data when selected province changes
+  const fetchKabkotaData = () => {
+    if (!selectedProvinsi) return;
+    setLoading(true);
+    getKabkotaByProvinsi(selectedProvinsi, activeTahun)
+      .then(res => {
+        setLocalData(res);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    setLocalData(rawData);
-  }, [rawData]);
+    fetchKabkotaData();
+  }, [selectedProvinsi, activeTahun]);
 
   const filtered = useMemo(() => {
     if (!search) return localData;
@@ -59,22 +68,69 @@ export default function KabupatenKotaPage() {
     setEditValue(String(value));
   };
 
-  const commitEdit = () => {
-    if (!editingCell) return;
+  const commitEdit = async () => {
+    if (!editingCell || !selectedProvinsi) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setLocalData(prev => prev.map(k => {
-        if (k.id !== editingCell.id) return k;
-        const nominal = editingCell.field === 'nominal' ? parsed : k.nominal_alokasi;
-        const realisasi = editingCell.field === 'realisasi' ? parsed : k.realisasi_total;
-        return {
-          ...k,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
-        };
-      }));
+      const target = localData.find(k => k.id === editingCell.id);
+      if (target) {
+        const nominal = editingCell.field === 'nominal' ? parsed : target.nominal_alokasi;
+        const realisasi = editingCell.field === 'realisasi' ? parsed : target.realisasi_total;
+
+        // 1. Update local state
+        setLocalData(prev => prev.map(k => {
+          if (k.id !== editingCell.id) return k;
+          return {
+            ...k,
+            nominal_alokasi: nominal,
+            realisasi_total: realisasi,
+            selisih: nominal - realisasi,
+            persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
+          };
+        }));
+
+        // 2. Update DB
+        const { error: kabError } = await supabase
+          .from('alokasi_kabupaten_kota')
+          .update({
+            nominal_alokasi: nominal,
+            realisasi_total: realisasi,
+          })
+          .eq('id', editingCell.id);
+
+        if (kabError) {
+          console.error(kabError);
+          alert('Gagal menyimpan perubahan ke database.');
+          fetchKabkotaData();
+          setEditingCell(null);
+          return;
+        }
+
+        // 3. Update province aggregate in DB
+        const newNominal = localData.reduce((sum, item) => {
+          if (item.id === editingCell.id && editingCell.field === 'nominal') return sum + parsed;
+          return sum + item.nominal_alokasi;
+        }, 0);
+        const newRealisasi = localData.reduce((sum, item) => {
+          if (item.id === editingCell.id && editingCell.field === 'realisasi') return sum + parsed;
+          return sum + item.realisasi_total;
+        }, 0);
+
+        const activeProv = provList.find(p => p.provinsi_id === selectedProvinsi);
+        if (activeProv) {
+          const { error: provError } = await supabase
+            .from('alokasi_provinsi')
+            .update({
+              nominal_alokasi: newNominal,
+              realisasi_total: newRealisasi,
+            })
+            .eq('id', activeProv.id);
+          
+          if (provError) {
+            console.error(provError);
+          }
+        }
+      }
     }
     setEditingCell(null);
   };
@@ -109,7 +165,7 @@ export default function KabupatenKotaPage() {
     );
   };
 
-  const selectedProvName = alokasiProvinsiData.find(p => p.provinsi_id === selectedProvinsi)?.provinsi.nama_provinsi || '';
+  const selectedProvName = provList.find(p => p.provinsi_id === selectedProvinsi)?.provinsi.nama_provinsi || '';
 
   return (
     <div className="min-h-screen">
@@ -125,7 +181,7 @@ export default function KabupatenKotaPage() {
               onChange={(e) => setSelectedProvinsi(e.target.value)}
               className="select-dropdown"
             >
-              {alokasiProvinsiData.map(p => (
+              {provList.map(p => (
                 <option key={p.provinsi_id} value={p.provinsi_id}>{p.provinsi.nama_provinsi}</option>
               ))}
             </select>
