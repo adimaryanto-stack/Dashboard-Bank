@@ -206,9 +206,14 @@ export default function APBNPage() {
                     </td>
                     <td className="sheet-cell text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button className="btn btn-ghost py-1 px-2 text-xs" title="Lihat">
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setActiveTahun(row.tahun)}
+                          className="btn btn-ghost py-1 px-2 text-xs inline-flex items-center"
+                          title="Lihat"
+                        >
                           <Eye size={12} />
-                        </button>
+                        </Link>
                         {row.status === 'DRAFT' && (
                           <>
                             <button onClick={() => handleActivate(row.id)} className="btn btn-success py-1 px-2 text-xs" title="Aktifkan">

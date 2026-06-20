@@ -119,6 +119,31 @@ export default function RincianPengeluaranPage() {
     setEditingCell(null);
   };
 
+  const handleExportItems = () => {
+    if (!rincianData) return;
+    const headers = ['No', 'Keterangan Transaksi / Nama Beban', 'Tarif / Harga Satuan (Rp)', 'Frekuensi', 'Sub Total Beban (Rp)'];
+    const csvRows = [headers.join(',')];
+    items.forEach((row, idx) => {
+      csvRows.push([
+        idx + 1,
+        `"${row.keterangan}"`,
+        row.harga_satuan,
+        row.qty,
+        row.harga_satuan * row.qty,
+      ].join(','));
+    });
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Detail_Beban_${rincianData.institusi_nama}_Bulan_${rincianData.bulan}_TA_${activeTahun}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const renderEditableCell = (row: RincianPengeluaranItem, field: 'harga_satuan' | 'qty') => {
     const value = row[field];
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
@@ -257,7 +282,7 @@ export default function RincianPengeluaranPage() {
             <Plus size={14} />
             Tambah Item
           </button>
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={handleExportItems}>
             <Download size={14} />
             Ekspor Excel
           </button>

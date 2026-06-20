@@ -16,6 +16,13 @@ export default function ProvinsiPage() {
   const [data, setData] = useState<AlokasiProvinsi[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Add Province states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newProvName, setNewProvName] = useState('');
+  const [newProvCode, setNewProvCode] = useState('');
+  const [newNominal, setNewNominal] = useState('');
+  const [newRealisasi, setNewRealisasi] = useState('');
+
   const fetchData = () => {
     setLoading(true);
     getAlokasiProvinsi(activeTahun)
@@ -91,6 +98,82 @@ export default function ProvinsiPage() {
     setEditingCell(null);
   };
 
+  const handleExport = () => {
+    const headers = ['No', 'Nama Provinsi', 'Alokasi Pagu (Rp)', 'Dana Cair (Rp)', 'Dana Pending (Rp)', 'Persentase Penyaluran (%)'];
+    const csvRows = [headers.join(',')];
+    filtered.forEach((row, idx) => {
+      csvRows.push([
+        idx + 1,
+        `"${row.provinsi.nama_provinsi}"`,
+        row.nominal_alokasi,
+        row.realisasi_total,
+        row.selisih,
+        row.persentase_penyerapan.toFixed(2),
+      ].join(','));
+    });
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Alokasi_Provinsi_TA_${activeTahun}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleAddProvince = async () => {
+    if (!newProvName) return;
+    try {
+      const { data: years } = await supabase
+        .from('tahun_anggaran')
+        .select('id')
+        .eq('tahun', activeTahun)
+        .single();
+        
+      if (!years) {
+        alert('Tahun anggaran aktif tidak ditemukan.');
+        return;
+      }
+
+      const newProvId = `p-${Date.now()}`;
+      const newAlokId = `prov-${Date.now()}`;
+      const kodeProv = newProvCode || String(Date.now()).slice(-2);
+
+      const { error: provErr } = await supabase
+        .from('provinsi')
+        .insert([{ id: newProvId, nama_provinsi: newProvName, kode_provinsi: kodeProv }]);
+
+      if (provErr) throw provErr;
+
+      const nom = Number(newNominal) || 0;
+      const real = Number(newRealisasi) || 0;
+      const { error: alokErr } = await supabase
+        .from('alokasi_provinsi')
+        .insert([{
+          id: newAlokId,
+          tahun_anggaran_id: years.id,
+          provinsi_id: newProvId,
+          nominal_alokasi: nom,
+          realisasi_total: real,
+          selisih: nom - real,
+          persentase_penyerapan: nom > 0 ? (real / nom) * 100 : 0
+        }]);
+
+      if (alokErr) throw alokErr;
+
+      setShowAddModal(false);
+      setNewProvName('');
+      setNewProvCode('');
+      setNewNominal('');
+      setNewRealisasi('');
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menambahkan provinsi baru.');
+    }
+  };
 
   const renderCell = (row: AlokasiProvinsi, field: 'nominal' | 'realisasi') => {
     const value = field === 'nominal' ? row.nominal_alokasi : row.realisasi_total;
@@ -146,7 +229,7 @@ export default function ProvinsiPage() {
             />
           </div>
           <span className="text-xs text-text-muted flex-1">{filtered.length} provinsi</span>
-          <button className="btn btn-primary">
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
             <Plus size={14} />
             Tambah Provinsi
           </button>
@@ -154,7 +237,7 @@ export default function ProvinsiPage() {
             <RefreshCw size={14} />
             Refresh
           </button>
-          <button className="btn btn-primary">
+          <button onClick={handleExport} className="btn btn-primary">
             <Download size={14} />
             Ekspor Excel
           </button>
@@ -216,6 +299,61 @@ export default function ProvinsiPage() {
           ✏️ Klik sel Alokasi Pagu atau Dana Cair untuk edit langsung • Tekan Enter untuk simpan • Escape untuk batal
         </p>
       </div>
+
+      {/* Add Province Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-text-primary mb-4">Tambah Provinsi & Alokasi</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1">Nama Provinsi</label>
+                <input
+                  type="text"
+                  value={newProvName}
+                  onChange={(e) => setNewProvName(e.target.value)}
+                  placeholder="Provinsi Papua Barat"
+                  className="search-input w-full pl-3"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1">Kode Provinsi (Opsional)</label>
+                <input
+                  type="text"
+                  value={newProvCode}
+                  onChange={(e) => setNewProvCode(e.target.value)}
+                  placeholder="92"
+                  className="search-input w-full pl-3"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1">Alokasi Pagu (Rp)</label>
+                <input
+                  type="number"
+                  value={newNominal}
+                  onChange={(e) => setNewNominal(e.target.value)}
+                  placeholder="500000000000"
+                  className="search-input w-full pl-3"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1">Dana Cair (Rp)</label>
+                <input
+                  type="number"
+                  value={newRealisasi}
+                  onChange={(e) => setNewRealisasi(e.target.value)}
+                  placeholder="300000000000"
+                  className="search-input w-full pl-3"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button onClick={() => setShowAddModal(false)} className="btn btn-ghost">Batal</button>
+                <button onClick={handleAddProvince} className="btn btn-primary">Simpan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

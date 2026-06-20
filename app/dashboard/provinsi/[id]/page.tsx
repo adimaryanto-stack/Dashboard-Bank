@@ -185,6 +185,31 @@ export default function ProvinsiDetailPage() {
     setEditingCell(null);
   };
 
+  const handleExportKabkota = () => {
+    if (!provData) return;
+    const headers = ['No', 'Nama Kabupaten/Kota', 'Alokasi Pagu (Rp)', 'Dana Cair (Rp)', 'Dana Pending (Rp)', 'Persentase Penyaluran (%)'];
+    const csvRows = [headers.join(',')];
+    kabkotaList.forEach((row, idx) => {
+      csvRows.push([
+        idx + 1,
+        `"${row.kabupaten_kota.nama_kabupaten_kota}"`,
+        row.nominal_alokasi,
+        row.realisasi_total,
+        row.selisih,
+        row.persentase_penyerapan.toFixed(2),
+      ].join(','));
+    });
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Penyaluran_Kabkota_${provData.provinsi.nama_provinsi}_TA_${activeTahun}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const renderEditableCell = (row: AlokasiKabupatenKota, field: 'nominal_alokasi' | 'realisasi_total') => {
     const value = row[field];
@@ -238,9 +263,7 @@ export default function ProvinsiDetailPage() {
           </button>
           
           <button 
-            onClick={() => {
-              alert('Fungsi ekspor Google Sheets berhasil disimulasikan! Menghasilkan berkas Excel...');
-            }} 
+            onClick={handleExportKabkota} 
             className="btn btn-secondary text-sm flex items-center gap-2"
           >
             <Download size={16} />

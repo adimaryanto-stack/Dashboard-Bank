@@ -283,6 +283,34 @@ export default function KabkotaDetailPage() {
     setEditingCell(null);
   };
 
+  const handleExportSchools = () => {
+    if (!kabkotaData) return;
+    const headers = ['No', 'Nama Sekolah / Pemilik Rekening', 'Kategori', 'Layanan', 'Nominal Alokasi (Rp)', 'Realisasi Total (Rp)', 'Selisih (Rp)', 'Persentase (%)'];
+    const csvRows = [headers.join(',')];
+    schoolList.forEach((row, idx) => {
+      csvRows.push([
+        idx + 1,
+        `"${row.nama_institusi}"`,
+        row.jenjang,
+        `"${row.status_sekolah}"`,
+        row.nominal_alokasi,
+        row.realisasi_total,
+        row.selisih,
+        row.persentase_penyerapan,
+      ].join(','));
+    });
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Penyaluran_Sekolah_${kabkotaData.kabupaten_kota.nama_kabupaten_kota}_TA_${activeTahun}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const renderEditableCell = (row: InstitusiPendidikan, field: 'nominal_alokasi' | 'realisasi_total') => {
     const value = row[field];
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
@@ -356,9 +384,7 @@ export default function KabkotaDetailPage() {
             </button>
             
             <button 
-              onClick={() => {
-                alert('Fungsi ekspor Google Sheets berhasil disimulasikan! Menghasilkan berkas Excel...');
-              }} 
+              onClick={handleExportSchools} 
               className="btn btn-secondary text-sm flex items-center gap-2"
             >
               <Download size={16} />
