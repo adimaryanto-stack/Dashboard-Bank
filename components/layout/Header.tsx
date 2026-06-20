@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getTahunAnggaran } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
@@ -18,9 +19,11 @@ interface NotificationItem {
   time: string;
   unread: boolean;
   type: 'info' | 'success' | 'warning';
+  link?: string;
 }
 
 export default function Header({ title, subtitle }: HeaderProps) {
+  const router = useRouter();
   const { activeTahun, setActiveTahun, toggleSidebar } = useAppStore();
   const [activeTahunList, setActiveTahunList] = useState<TahunAnggaran[]>([]);
 
@@ -50,6 +53,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
             time: n.time_label,
             unread: n.unread,
             type: n.type,
+            link: n.link,
           }))
         );
       }
@@ -97,6 +101,26 @@ export default function Header({ title, subtitle }: HeaderProps) {
     } catch (err) {
       console.error(err);
       fetchNotifications();
+    }
+  };
+
+  const handleNotificationClick = async (id: string, link?: string) => {
+    const item = notifications.find(n => n.id === id);
+    if (item && item.unread) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ unread: false })
+          .eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setShowNotifications(false);
+    if (link) {
+      router.push(link);
     }
   };
 
@@ -189,7 +213,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                       notifications.map((n) => (
                         <div 
                           key={n.id} 
-                          onClick={() => toggleRead(n.id)}
+                          onClick={() => handleNotificationClick(n.id, n.link)}
                           className={`p-3.5 flex gap-3 cursor-pointer transition-colors ${n.unread ? 'bg-indigo-50/40 hover:bg-indigo-50/60' : 'hover:bg-slate-50'}`}
                         >
                           <div className="mt-0.5 flex-shrink-0">
